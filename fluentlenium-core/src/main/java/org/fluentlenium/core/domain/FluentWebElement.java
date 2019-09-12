@@ -1,44 +1,68 @@
 package org.fluentlenium.core.domain;
 
-import lombok.experimental.Delegate;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.Stack;
+import java.util.function.Function;
+
 import org.fluentlenium.core.FluentControl;
+import org.fluentlenium.core.FluentPage;
+import org.fluentlenium.core.SeleniumDriverControl;
 import org.fluentlenium.core.action.Fill;
 import org.fluentlenium.core.action.FillSelect;
 import org.fluentlenium.core.action.FluentActions;
 import org.fluentlenium.core.action.FluentJavascriptActionsImpl;
-import org.fluentlenium.core.action.InputControl;
 import org.fluentlenium.core.action.KeyboardElementActions;
 import org.fluentlenium.core.action.MouseElementActions;
-import org.fluentlenium.core.dom.Dom;
+import org.fluentlenium.core.action.WindowAction;
+import org.fluentlenium.core.alert.Alert;
+import org.fluentlenium.core.alert.AlertControl;
+import org.fluentlenium.core.capabilities.CapabilitiesControl;
 import org.fluentlenium.core.components.ComponentInstantiator;
 import org.fluentlenium.core.conditions.FluentConditions;
 import org.fluentlenium.core.conditions.WebElementConditions;
+import org.fluentlenium.core.css.CssControl;
+import org.fluentlenium.core.css.CssSupport;
+import org.fluentlenium.core.dom.Dom;
+import org.fluentlenium.core.events.EventsControl;
+import org.fluentlenium.core.events.EventsRegistry;
+import org.fluentlenium.core.hook.FluentHook;
 import org.fluentlenium.core.hook.HookControl;
 import org.fluentlenium.core.hook.HookControlImpl;
 import org.fluentlenium.core.hook.HookDefinition;
+import org.fluentlenium.core.inject.ContainerContext;
+import org.fluentlenium.core.inject.FluentInjectControl;
 import org.fluentlenium.core.label.FluentLabel;
 import org.fluentlenium.core.label.FluentLabelImpl;
+import org.fluentlenium.core.navigation.NavigationControl;
 import org.fluentlenium.core.proxy.FluentProxyState;
 import org.fluentlenium.core.proxy.LocatorHandler;
 import org.fluentlenium.core.proxy.LocatorProxies;
+import org.fluentlenium.core.script.FluentJavascript;
+import org.fluentlenium.core.script.JavascriptControl;
 import org.fluentlenium.core.search.Search;
 import org.fluentlenium.core.search.SearchControl;
 import org.fluentlenium.core.search.SearchFilter;
-import org.fluentlenium.core.wait.AwaitControl;
+import org.fluentlenium.core.snapshot.SnapshotControl;
 import org.fluentlenium.core.wait.FluentWaitElement;
 import org.fluentlenium.utils.SupplierOfInstance;
 import org.openqa.selenium.By;
+import org.openqa.selenium.Capabilities;
+import org.openqa.selenium.Cookie;
 import org.openqa.selenium.Dimension;
+import org.openqa.selenium.ElementClickInterceptedException;
+import org.openqa.selenium.ElementNotVisibleException;
+import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.SearchContext;
+import org.openqa.selenium.StaleElementReferenceException;
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.internal.WrapsElement;
 import org.openqa.selenium.support.pagefactory.ElementLocator;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.Stack;
-import java.util.function.Supplier;
 
 /**
  * Wraps a Selenium {@link WebElement}. It provides an enhanced API to control selenium element.
@@ -46,7 +70,9 @@ import java.util.function.Supplier;
 @SuppressWarnings({"PMD.GodClass", "PMD.ExcessivePublicCount"})
 public class FluentWebElement extends Component
         implements WrapsElement, FluentActions<FluentWebElement, FluentWebElement>, FluentProxyState<FluentWebElement>,
-        SearchControl<FluentWebElement>, HookControl<FluentWebElement>, FluentLabel<FluentWebElement> {
+        SearchControl<FluentWebElement>, HookControl<FluentWebElement>, FluentLabel<FluentWebElement>,
+        NavigationControl, JavascriptControl, AlertControl, SnapshotControl, EventsControl, SeleniumDriverControl,
+        CssControl, FluentInjectControl, CapabilitiesControl, ComponentInstantiator {
     private final Search search;
     private final Dom dom;
     private final MouseElementActions mouseActions;
@@ -55,7 +81,6 @@ public class FluentWebElement extends Component
 
     private final HookControlImpl<FluentWebElement> hookControl;
 
-    @Delegate
     private final FluentLabel<FluentWebElement> label;
 
     private final FluentJavascriptActionsImpl<FluentWebElement> javascriptActions;
@@ -64,7 +89,7 @@ public class FluentWebElement extends Component
      * Creates a new fluent web element.
      *
      * @param element      underlying element
-     * @param control      controle interface
+     * @param control      control interface
      * @param instantiator component instantiator
      */
     public FluentWebElement(WebElement element, FluentControl control, ComponentInstantiator instantiator) {
@@ -74,14 +99,11 @@ public class FluentWebElement extends Component
                 /*do not change it to lambda - change will affect w/ PMD warning
                 Overridable method 'getElement' called during object construction*/
 
-                new Supplier<FluentWebElement>() {
-                    @Override
-                    public FluentWebElement get() {
-                        LocatorHandler locatorHandler = LocatorProxies.getLocatorHandler(getElement());
-                        ElementLocator locator = locatorHandler.getLocator();
-                        WebElement noHookElement = LocatorProxies.createWebElement(locator);
-                        return newComponent(FluentWebElement.this.getClass(), noHookElement);
-                    }
+                () -> {
+                    LocatorHandler locatorHandler = LocatorProxies.getLocatorHandler(getElement());
+                    ElementLocator locator = locatorHandler.getLocator();
+                    WebElement noHookElement = LocatorProxies.createWebElement(locator);
+                    return control.newComponent(this.getClass(), noHookElement);
                 });
 
         search = new Search(element, this, this.instantiator, this.control);
@@ -93,19 +115,292 @@ public class FluentWebElement extends Component
         javascriptActions = new FluentJavascriptActionsImpl<>(this, this.control, new SupplierOfInstance<>(this));
     }
 
-    @Delegate(excludes = {InputControl.class, AwaitControl.class, SearchControl.class})
-    private FluentControl getFluentControl() { // NOPMD UnusedPrivateMethod
-        return control;
-    }
-
-    @Delegate
     private HookControl<FluentWebElement> getHookControl() { // NOPMD UnusedPrivateMethod
         return hookControl;
     }
 
-    @Delegate
     private FluentJavascriptActionsImpl<FluentWebElement> getJavascriptActions() { //NOPMD UnusedPrivateMethod
         return javascriptActions;
+    }
+
+    public FluentLabel<FluentWebElement> getLabel() {
+        return label;
+    }
+
+    @Override
+    public FluentJavascript executeScript(String script, Object... args) {
+        return control.executeScript(script, args);
+    }
+
+    @Override
+    public FluentJavascript executeAsyncScript(String script, Object... args) {
+        return control.executeAsyncScript(script, args);
+    }
+
+    @Override
+    public Alert alert() {
+        return control.alert();
+    }
+
+    @Override
+    public void takeHtmlDump() {
+        control.takeHtmlDump();
+    }
+
+    @Override
+    public void takeHtmlDump(String fileName) {
+        control.takeHtmlDump(fileName);
+    }
+
+    @Override
+    public boolean canTakeScreenShot() {
+        return control.canTakeScreenShot();
+    }
+
+    @Override
+    public void takeScreenshot() {
+        control.takeScreenshot();
+    }
+
+    @Override
+    public void takeScreenshot(String fileName) {
+        control.takeScreenshot(fileName);
+    }
+
+    @Override
+    public EventsRegistry events() {
+        return control.events();
+    }
+
+    @Override
+    public <P extends FluentPage> P goTo(P page) {
+        return control.goTo(page);
+    }
+
+    @Override
+    public void goTo(String url) {
+        control.goTo(url);
+    }
+
+    @Override
+    public void goToInNewTab(String url) {
+        control.goToInNewTab(url);
+    }
+
+    @Override
+    public void switchTo(FluentList<? extends FluentWebElement> elements) {
+        control.switchTo(elements);
+    }
+
+    @Override
+    public void switchTo(FluentWebElement element) {
+        control.switchTo(element);
+    }
+
+    @Override
+    public void switchTo() {
+        control.switchTo();
+    }
+
+    @Override
+    public void switchToDefault() {
+        control.switchToDefault();
+    }
+
+    @Override
+    public String pageSource() {
+        return control.pageSource();
+    }
+
+    @Override
+    public WindowAction window() {
+        return control.window();
+    }
+
+    @Override
+    public Set<Cookie> getCookies() {
+        return control.getCookies();
+    }
+
+    @Override
+    public Cookie getCookie(String name) {
+        return control.getCookie(name);
+    }
+
+    @Override
+    public String url() {
+        return control.url();
+    }
+
+    @Override
+    public WebDriver getDriver() {
+        return control.getDriver();
+    }
+
+    @Override
+    public CssSupport css() {
+        return control.css();
+    }
+
+    @Override
+    public ContainerContext inject(Object container) {
+        return control.inject(container);
+    }
+
+    @Override
+    public ContainerContext injectComponent(Object componentContainer, Object parentContainer, SearchContext context) {
+        return control.injectComponent(componentContainer, parentContainer, context);
+    }
+
+    @Override
+    public <T> T newInstance(Class<T> cls) {
+        return control.newInstance(cls);
+    }
+
+
+    @Override
+    public FluentWebElement newFluent(WebElement element) {
+        return control.newFluent(element);
+    }
+
+    @Override
+    public <T> T newComponent(Class<T> componentClass, WebElement element) {
+        return control.newComponent(componentClass, element);
+    }
+
+    @Override
+    public FluentList<FluentWebElement> newFluentList() {
+        return control.newFluentList();
+    }
+
+    @Override
+    public FluentList<FluentWebElement> newFluentList(FluentWebElement... elements) {
+        return control.newFluentList(elements);
+    }
+
+    @Override
+    public FluentList<FluentWebElement> newFluentList(List<FluentWebElement> elements) {
+        return control.newFluentList(elements);
+    }
+
+    @Override
+    public FluentList<FluentWebElement> asFluentList(WebElement... elements) {
+        return control.asFluentList(elements);
+    }
+
+    @Override
+    public FluentList<FluentWebElement> asFluentList(Iterable<WebElement> elements) {
+        return control.asFluentList(elements);
+    }
+
+    @Override
+    public FluentList<FluentWebElement> asFluentList(List<WebElement> elements) {
+        return control.asFluentList(elements);
+    }
+
+    @Override
+    public <T extends FluentWebElement> FluentList<T> newFluentList(Class<T> componentClass) {
+        return control.newFluentList(componentClass);
+    }
+
+    @Override
+    public <T extends FluentWebElement> FluentList<T> newFluentList(Class<T> componentClass, T... elements) {
+        return control.newFluentList(componentClass, elements);
+    }
+
+    @Override
+    public <T extends FluentWebElement> FluentList<T> newFluentList(Class<T> componentClass, List<T> elements) {
+        return control.newFluentList(componentClass, elements);
+    }
+
+    @Override
+    public <T extends FluentWebElement> FluentList<T> asFluentList(Class<T> componentClass, WebElement... elements) {
+        return control.asFluentList(componentClass, elements);
+    }
+
+    @Override
+    public <T extends FluentWebElement> FluentList<T> asFluentList(Class<T> componentClass, Iterable<WebElement> elements) {
+        return control.asFluentList(componentClass, elements);
+    }
+
+    @Override
+    public <T extends FluentWebElement> FluentList<T> asFluentList(Class<T> componentClass, List<WebElement> elements) {
+        return control.asFluentList(componentClass, elements);
+    }
+
+    @Override
+    public <T> ComponentList<T> newComponentList(Class<T> componentClass) {
+        return control.newComponentList(componentClass);
+    }
+
+    @Override
+    public <T> ComponentList<T> asComponentList(Class<T> componentClass, WebElement... elements) {
+        return control.asComponentList(componentClass, elements);
+    }
+
+    @Override
+    public <T> ComponentList asComponentList(Class<T> componentClass, Iterable<WebElement> elements) {
+        return control.asComponentList(componentClass, elements);
+    }
+
+    @Override
+    public <T> ComponentList<T> asComponentList(Class<T> componentClass, List<WebElement> elements) {
+        return control.asComponentList(componentClass, elements);
+    }
+
+    @Override
+    public <T> ComponentList<T> newComponentList(Class<T> componentClass, T... componentsList) {
+        return control.newComponentList(componentClass, componentsList);
+    }
+
+    @Override
+    public <T> ComponentList<T> newComponentList(Class<T> componentClass, List<T> componentsList) {
+        return control.newComponentList(componentClass, componentsList);
+    }
+
+    @Override
+    public <L extends List<T>, T> L newComponentList(Class<L> listClass, Class<T> componentClass) {
+        return control.newComponentList(listClass, componentClass);
+    }
+
+    @Override
+    public <L extends List<T>, T> L asComponentList(Class<L> listClass, Class<T> componentClass, WebElement... elements) {
+        return control.asComponentList(listClass, componentClass, elements);
+    }
+
+    @Override
+    public <L extends List<T>, T> L asComponentList(Class<L> listClass, Class<T> componentClass, Iterable<WebElement> elements) {
+        return control.asComponentList(listClass, componentClass, elements);
+    }
+
+    @Override
+    public <L extends List<T>, T> L asComponentList(Class<L> listClass, Class<T> componentClass, List<WebElement> elements) {
+        return control.asComponentList(listClass, componentClass, elements);
+    }
+
+    @Override
+    public <L extends List<T>, T> L newComponentList(Class<L> listClass, Class<T> componentClass, T... componentsList) {
+        return control.newComponentList(listClass, componentClass, componentsList);
+    }
+
+    @Override
+    public <L extends List<T>, T> L newComponentList(Class<L> listClass, Class<T> componentClass, List<T> componentsList) {
+        return control.newComponentList(listClass, componentClass, componentsList);
+    }
+
+    @Override
+    public boolean isComponentClass(Class<?> componentClass) {
+        return control.isComponentClass(componentClass);
+    }
+
+    @Override
+    public boolean isComponentListClass(Class<? extends List<?>> componentListClass) {
+        return false;
+    }
+
+    @Override
+    public Capabilities capabilities() {
+        return control.capabilities();
     }
 
     @Override
@@ -122,7 +417,20 @@ public class FluentWebElement extends Component
 
     @Override
     public FluentWebElement contextClick() {
-        mouseActions.contextClick();
+        mouse().contextClick();
+        return this;
+    }
+
+    @Override
+    public FluentWebElement waitAndClick() {
+        return waitAndClick(Duration.ofSeconds(5));
+    }
+
+    @Override
+    public FluentWebElement waitAndClick(Duration duration) {
+        await().atMost(duration).until(this).clickable();
+        this.scrollToCenter();
+        this.click();
         return this;
     }
 
@@ -160,6 +468,7 @@ public class FluentWebElement extends Component
      * XPath Axes accessor (parent, ancestors, preceding, following, ...).
      *
      * @return object to perform XPath Axes transformations.
+     * @deprecated Use {@link #dom()} instead.
      */
     @Deprecated
     public Dom axes() {
@@ -212,7 +521,7 @@ public class FluentWebElement extends Component
     }
 
     /**
-     * Wrap all underlying elements in a componen..
+     * Wrap all underlying elements in a component.
      *
      * @param componentClass component class
      * @param <T>            type of component
@@ -220,7 +529,7 @@ public class FluentWebElement extends Component
      */
     public <T> T as(Class<T> componentClass) {
         T component = instantiator.newComponent(componentClass, getElement());
-        injectComponent(component, this, getElement());
+        control.injectComponent(component, this, getElement());
         return component;
     }
 
@@ -232,6 +541,18 @@ public class FluentWebElement extends Component
     public FluentWebElement clear() {
         if (!isInputOfTypeFile()) {
             webElement.clear();
+        }
+        return this;
+    }
+
+    /**
+     * Clear React input using Backspace only
+     *
+     * @return fluent web element
+     */
+    public FluentWebElement clearReactInput() {
+        if (this.attribute("value").length() != 0) {
+            javascriptActions.modifyAttribute("value", "");
         }
         return this;
     }
@@ -332,9 +653,16 @@ public class FluentWebElement extends Component
      * return true if the element is displayed, other way return false
      *
      * @return boolean value of displayed check
+     * @see WebElement#isDisplayed()
      */
     public boolean displayed() {
-        return webElement.isDisplayed();
+        boolean displayed;
+        try {
+            displayed = webElement.isDisplayed();
+        } catch (NoSuchElementException e) {
+            displayed = false;
+        }
+        return displayed;
     }
 
     /**
@@ -344,7 +672,13 @@ public class FluentWebElement extends Component
      * @see WebElement#isEnabled()
      */
     public boolean enabled() {
-        return webElement.isEnabled();
+        boolean enabled;
+        try {
+            enabled = webElement.isEnabled();
+        } catch (NoSuchElementException e) {
+            enabled = false;
+        }
+        return enabled;
     }
 
     /**
@@ -354,7 +688,13 @@ public class FluentWebElement extends Component
      * @see WebElement#isSelected()
      */
     public boolean selected() {
-        return webElement.isSelected();
+        boolean selected;
+        try {
+            selected = webElement.isSelected();
+        } catch (NoSuchElementException e) {
+            selected = false;
+        }
+        return selected;
     }
 
     /**
@@ -364,7 +704,15 @@ public class FluentWebElement extends Component
      */
 
     public boolean clickable() {
-        return ExpectedConditions.elementToBeClickable(getElement()).apply(control.getDriver()) != null;
+        boolean clickable;
+        try {
+            clickable = ExpectedConditions.elementToBeClickable(getElement())
+                    .apply(control.getDriver()) != null;
+        } catch (NoSuchElementException | StaleElementReferenceException
+                | ElementNotVisibleException | ElementClickInterceptedException e) {
+            clickable = false;
+        }
+        return clickable;
     }
 
     /**
@@ -404,6 +752,7 @@ public class FluentWebElement extends Component
      * return the size of the element
      *
      * @return dimension/size of element
+     * @see WebElement#getSize()
      */
     public Dimension size() {
         return webElement.getSize();
@@ -416,36 +765,6 @@ public class FluentWebElement extends Component
      */
     public FluentList<FluentWebElement> asList() {
         return instantiator.asComponentList(FluentListImpl.class, FluentWebElement.class, Arrays.asList(webElement));
-    }
-
-    @Override
-    public FluentList<FluentWebElement> $(String selector, SearchFilter... filters) {
-        return find(selector, filters);
-    }
-
-    @Override
-    public FluentWebElement el(String selector, SearchFilter... filters) {
-        return find(selector, filters).first();
-    }
-
-    @Override
-    public FluentList<FluentWebElement> $(SearchFilter... filters) {
-        return find(filters);
-    }
-
-    @Override
-    public FluentWebElement el(SearchFilter... filters) {
-        return find(filters).first();
-    }
-
-    @Override
-    public FluentList<FluentWebElement> $(By locator, SearchFilter... filters) {
-        return find(locator, filters);
-    }
-
-    @Override
-    public FluentWebElement el(By locator, SearchFilter... filters) {
-        return find(locator, filters).first();
     }
 
     @Override
@@ -469,11 +788,6 @@ public class FluentWebElement extends Component
     }
 
     @Override
-    public FluentList<FluentWebElement> $(List<WebElement> rawElements) {
-        return search.$(rawElements);
-    }
-
-    @Override
     public FluentWebElement el(WebElement rawElement) {
         return search.el(rawElement);
     }
@@ -488,18 +802,18 @@ public class FluentWebElement extends Component
     }
 
     @Override
-    public Fill fill() {
-        return new Fill(this);
+    public Fill<FluentWebElement> fill() {
+        return new Fill<>(this);
     }
 
     @Override
-    public FillSelect fillSelect() {
-        return new FillSelect(this);
+    public FillSelect<FluentWebElement> fillSelect() {
+        return new FillSelect<>(this);
     }
 
     @Override
     public FluentWebElement frame() {
-        window().switchTo().frame(this);
+        control.window().switchTo().frame(this);
         return this;
     }
 
@@ -533,5 +847,80 @@ public class FluentWebElement extends Component
     @Override
     public String toString() {
         return label.toString();
+    }
+
+    @Override
+    public <R> R noHook(Class<? extends FluentHook> hook, Function<FluentWebElement, R> function) {
+        return getHookControl().noHook(hook, function);
+    }
+
+    @Override
+    public <O, H extends FluentHook<O>> FluentWebElement withHook(Class<H> hook, O options) {
+        return getHookControl().withHook(hook, options);
+    }
+
+    @Override
+    public <O, H extends FluentHook<O>> FluentWebElement withHook(Class<H> hook) {
+        return getHookControl().withHook(hook);
+    }
+
+    @Override
+    public FluentWebElement noHook(Class<? extends FluentHook>... hooks) {
+        return getHookControl().noHook(hooks);
+    }
+
+    @Override
+    public <R> R noHook(Function<FluentWebElement, R> function) {
+        return getHookControl().noHook(function);
+    }
+
+    @Override
+    public FluentWebElement noHookInstance(Class<? extends FluentHook>... hooks) {
+        return getHookControl().noHookInstance(hooks);
+    }
+
+    @Override
+    public FluentWebElement restoreHooks() {
+        return getHookControl().restoreHooks();
+    }
+
+    @Override
+    public FluentWebElement noHookInstance() {
+        return getHookControl().noHookInstance();
+    }
+
+    @Override
+    public FluentWebElement noHook() {
+        return getHookControl().noHook();
+    }
+
+    @Override
+    public FluentWebElement scrollToCenter() {
+        return getJavascriptActions().scrollToCenter();
+    }
+
+    @Override
+    public FluentWebElement scrollIntoView() {
+        return getJavascriptActions().scrollIntoView();
+    }
+
+    @Override
+    public FluentWebElement scrollIntoView(boolean alignWithTop) {
+        return getJavascriptActions().scrollIntoView(alignWithTop);
+    }
+
+    @Override
+    public FluentWebElement modifyAttribute(String attributeName, String attributeValue) {
+        return getJavascriptActions().modifyAttribute(attributeName, attributeValue);
+    }
+
+    @Override
+    public FluentWebElement withLabelHint(String... labelHint) {
+        return getLabel().withLabelHint(labelHint);
+    }
+
+    @Override
+    public FluentWebElement withLabel(String label) {
+        return getLabel().withLabel(label);
     }
 }

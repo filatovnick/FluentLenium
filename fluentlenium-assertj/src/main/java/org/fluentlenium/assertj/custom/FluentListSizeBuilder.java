@@ -5,18 +5,18 @@ package org.fluentlenium.assertj.custom;
  */
 public class FluentListSizeBuilder {
 
+    private static final String ACTUAL_SIZE = "Actual size: ";
+
     private final int actualSize;
     private final FluentListAssert listAssert;
-
-    private static final String ACTUAL_SIZE = "Actual size: ";
 
     /**
      * Creates a new fluent list size builder.
      *
-     * @param size       size of the list
+     * @param size       the actual size of the list
      * @param listAssert assertion
      */
-    public FluentListSizeBuilder(int size, FluentListAssert listAssert) {
+    FluentListSizeBuilder(int size, FluentListAssert listAssert) {
         actualSize = size;
         this.listAssert = listAssert;
     }
@@ -40,7 +40,7 @@ public class FluentListSizeBuilder {
      * @param size expected size
      * @return ${code this} assertion object.
      */
-    public Object lessThanOrEqualTo(int size) {
+    public FluentListAssert lessThanOrEqualTo(int size) {
         if (actualSize > size) {
             listAssert.failWithMessage(ACTUAL_SIZE + actualSize + " is not less than or equal to: " + size);
         }
@@ -66,11 +66,39 @@ public class FluentListSizeBuilder {
      * @param size expected size
      * @return ${code this} assertion object.
      */
-    public Object greaterThanOrEqualTo(int size) {
+    public FluentListAssert greaterThanOrEqualTo(int size) {
         if (actualSize < size) {
             listAssert.failWithMessage(ACTUAL_SIZE + actualSize + " is not greater than or equal to: " + size);
         }
         return listAssert;
+    }
+
+    /**
+     * Assert that actual list size is different to given size.
+     *
+     * @param size expected size
+     * @return ${code this} assertion object.
+     */
+    public FluentListAssert notEqualTo(int size) {
+        if (actualSize == size) {
+            listAssert.failWithMessage(ACTUAL_SIZE + actualSize + " is equal to: " + size);
+        }
+        return listAssert;
+    }
+
+    /**
+     * Assert that actual list size is equal to given size.
+     * <p>
+     * As an alternate solution you can call the following assertion directly:
+     * <pre>
+     * assertThat(elementList).hasSize(5);
+     * </pre>
+     *
+     * @param size expected size
+     * @return ${code this} assertion object.
+     */
+    public FluentListAssert equalTo(int size) {
+        return listAssert.hasSize(size);
     }
 
 }

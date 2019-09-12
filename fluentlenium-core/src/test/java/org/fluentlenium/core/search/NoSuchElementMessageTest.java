@@ -1,7 +1,5 @@
 package org.fluentlenium.core.search;
 
-import org.assertj.core.api.Assertions;
-import org.assertj.core.api.ThrowableAssert;
 import org.fluentlenium.adapter.FluentAdapter;
 import org.fluentlenium.core.components.DefaultComponentInstantiator;
 import org.fluentlenium.core.filter.AttributeFilter;
@@ -15,6 +13,7 @@ import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.SearchContext;
 import org.openqa.selenium.WebDriver;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.fluentlenium.core.filter.FilterConstructor.withId;
 import static org.fluentlenium.core.filter.FilterConstructor.withText;
 
@@ -45,73 +44,49 @@ public class NoSuchElementMessageTest {
 
     @Test
     public void testListSelector() {
-        Assertions.assertThatThrownBy(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                search.$("test").now();
-            }
-        }).isExactlyInstanceOf(NoSuchElementException.class)
+        assertThatThrownBy(() -> search.$("test").now())
+                .isExactlyInstanceOf(NoSuchElementException.class)
                 .hasMessageStartingWith("Elements By.cssSelector: test (Lazy Element List) is not present");
     }
 
     @Test
     public void testElementSelector() {
-        Assertions.assertThatThrownBy(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                search.el("test").now();
-            }
-        }).isExactlyInstanceOf(NoSuchElementException.class)
+        assertThatThrownBy(() -> search.el("test").now())
+                .isExactlyInstanceOf(NoSuchElementException.class)
                 .hasMessageStartingWith("Element By.cssSelector: test (first) (Lazy Element) is not present");
     }
 
     @Test
     public void testListWithFilterSelector() {
-        Assertions.assertThatThrownBy(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                search.$("test", withText("someText"), withId("someId")).now();
-            }
-        }).isExactlyInstanceOf(NoSuchElementException.class).hasMessageStartingWith(
-                "Elements By.cssSelector: test[id=\"someId\"] with text equals to \"someText\" (Lazy Element List) is not "
-                        + "present");
+        assertThatThrownBy(() -> search.$("test", withText("someText"), withId("someId")).now())
+                .isExactlyInstanceOf(NoSuchElementException.class).hasMessageStartingWith(
+                "Elements By.cssSelector: test[id=\"someId\"] with text equals to \"someText\""
+                        + " (Lazy Element List) is not present");
 
     }
 
     @Test
     public void testListBySelectorWithFilterSelector() {
-        Assertions.assertThatThrownBy(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                search.$(By.cssSelector("test"), withText("someText"), withId("someId")).now();
-            }
-        }).isExactlyInstanceOf(NoSuchElementException.class).hasMessageStartingWith(
-                "Elements By.cssSelector: test with text equals to \"someText\" and with id equals to \"someId\" (Lazy Element "
-                        + "List) is not present");
+        assertThatThrownBy(() -> search.$(By.cssSelector("test"), withText("someText"), withId("someId")).now())
+                .isExactlyInstanceOf(NoSuchElementException.class).hasMessageStartingWith(
+                "Elements By.cssSelector: test with text equals to \"someText\" and with id equals to \"someId\" "
+                        + "(Lazy Element List) is not present");
 
     }
 
     @Test
     public void testElWithFilterSelector() {
-        Assertions.assertThatThrownBy(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                search.el("test", withText("someText"), withId("someId")).now();
-            }
-        }).isExactlyInstanceOf(NoSuchElementException.class).hasMessageStartingWith(
-                "Element By.cssSelector: test[id=\"someId\"] with text equals to \"someText\" (first) (Lazy Element) is not "
-                        + "present");
+        assertThatThrownBy(() -> search.el("test", withText("someText"), withId("someId")).now())
+                .isExactlyInstanceOf(NoSuchElementException.class).hasMessageStartingWith(
+                "Element By.cssSelector: test[id=\"someId\"] with text equals to \"someText\" (first) (Lazy Element) "
+                        + "is not present");
     }
 
     @Test
     public void testElBySelectorWithFilterSelector() {
-        Assertions.assertThatThrownBy(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                search.el(By.cssSelector("test"), withText("someText"), withId("someId")).now();
-            }
-        }).isExactlyInstanceOf(NoSuchElementException.class).hasMessageStartingWith(
-                "Element By.cssSelector: test with text equals to \"someText\" and with id equals to \"someId\" (first) (Lazy "
-                        + "Element) is not present");
+        assertThatThrownBy(() -> search.el(By.cssSelector("test"), withText("someText"), withId("someId")).now())
+                .isExactlyInstanceOf(NoSuchElementException.class).hasMessageStartingWith(
+                "Element By.cssSelector: test with text equals to \"someText\" and with id equals to \"someId\" (first)"
+                        + " (Lazy Element) is not present");
     }
 }

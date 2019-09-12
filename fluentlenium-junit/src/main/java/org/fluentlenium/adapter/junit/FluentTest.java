@@ -1,5 +1,6 @@
 package org.fluentlenium.adapter.junit;
 
+import org.fluentlenium.utils.SeleniumVersionChecker;
 import org.fluentlenium.adapter.FluentTestRunnerAdapter;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -21,6 +22,7 @@ public class FluentTest extends FluentTestRunnerAdapter {
 
         @Override
         public void starting(Description description) {
+            SeleniumVersionChecker.checkSeleniumVersion();
             super.starting(description);
             FluentTest.this.starting(description.getTestClass(), description.getDisplayName());
         }
@@ -43,21 +45,15 @@ public class FluentTest extends FluentTestRunnerAdapter {
      * Fluent test adapter JUnit class rule.
      */
     @ClassRule
-    public static TestRule classWatchman = new TestRule() {
+    public static TestRule classWatchman = (base, description) -> new Statement() {
 
         @Override
-        public Statement apply(Statement base, Description description) {
-            return new Statement() {
-
-                @Override
-                public void evaluate() throws Throwable {
-                    try {
-                        base.evaluate();
-                    } finally {
-                        afterClass(description.getTestClass());
-                    }
-                }
-            };
+        public void evaluate() throws Throwable {
+            try {
+                base.evaluate();
+            } finally {
+                afterClass(description.getTestClass());
+            }
         }
     };
     //CHECKSTYLE.ON: VisibilityModifier

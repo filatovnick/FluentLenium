@@ -1,127 +1,217 @@
 package org.fluentlenium.assertj.custom;
 
-import org.assertj.core.api.AbstractAssert;
+import org.assertj.core.api.ListAssert;
 import org.fluentlenium.core.domain.FluentList;
+import org.fluentlenium.core.domain.FluentWebElement;
+import org.openqa.selenium.Dimension;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+
+import static org.fluentlenium.assertj.custom.HtmlConstants.CLASS_ATTRIBUTE;
 
 /**
- * Element list assertions.
+ * Default implementation for {@link FluentList} assertions.
  */
-public class FluentListAssert extends AbstractAssert<FluentListAssert, FluentList> {
-    /**
-     * Creates a new element list assertion object.
-     *
-     * @param actual actual element list
-     */
-    public FluentListAssert(FluentList<?> actual) {
+@SuppressWarnings("unchecked")
+public class FluentListAssert extends AbstractFluentAssert<FluentListAssert, FluentList>
+        implements ListStateAssert, ListAttributeAssert {
+
+    public FluentListAssert(FluentList<? extends FluentWebElement> actual) {
         super(actual, FluentListAssert.class);
     }
 
-    /**
-     * check if at least one element of the FluentList contains the text
-     *
-     * @param textToFind text to find
-     * @return assertion object
-     */
-    public FluentListAssert hasText(String textToFind) {
-        List<String> actualTexts = actual.texts();
-        for (String text : actualTexts) {
-            if (text.contains(textToFind)) {
-                return this;
-            }
-        }
-        super.failWithMessage("No selected elements contains text: " + textToFind + " . Actual texts found : " + actualTexts);
-        return this;
+    @Override
+    public FluentListAssert isEmpty() {
+        return hasSize(0);
     }
 
-    /**
-     * check if at no element of the FluentList contains the text
-     *
-     * @param textToFind text to find
-     * @return assertion object
-     */
-    public FluentListAssert hasNotText(String textToFind) {
-        List<String> actualTexts = actual.texts();
-        for (String text : actualTexts) {
-            if (text.contains(textToFind)) {
-                super.failWithMessage(
-                        "At least one selected elements contains text: " + textToFind + " . Actual texts found : " + actualTexts);
-            }
-        }
-        return this;
+    @Override
+    public FluentListAssert isNotEmpty() {
+        return hasSize().notEqualTo(0);
     }
 
-    /**
-     * Check the list size
-     *
-     * @param expectedSize expected size
-     * @return assertion object
-     */
+    @Override
     public FluentListAssert hasSize(int expectedSize) {
-        int actualSize = actual.size();
+        int actualSize = actual.count();
         if (actualSize != expectedSize) {
-            super.failWithMessage("Expected size: " + expectedSize + ". Actual size: " + actualSize + ".");
+            failWithMessage("Expected size: " + expectedSize + ". Actual size: " + actualSize + ".");
         }
-        return this;
-    }
-
-    /**
-     * Check the list size
-     *
-     * @return List size builder
-     */
-    public FluentListSizeBuilder hasSize() {
-        return new FluentListSizeBuilder(actual.size(), this);
-    }
-
-    /**
-     * check if an element of the FluentList has the id
-     *
-     * @param idToFind id to find
-     * @return assertion object
-     */
-    public FluentListAssert hasId(String idToFind) {
-        List actualIds = actual.ids();
-        if (!actualIds.contains(idToFind)) {
-            super.failWithMessage("No selected elements has id: " + idToFind + " . Actual texts found : " + actualIds);
-        }
-        return this;
-    }
-
-    /**
-     * check if at least one element of the FluentList contains the text
-     *
-     * @param classToFind class to find
-     * @return assertion object
-     */
-    public FluentListAssert hasClass(String classToFind) {
-        List<String> classes = (List<String>) actual.attributes("class");
-
-        for (String classesStr : classes) {
-            List<String> classesLst = Arrays.asList(classesStr.split(" "));
-            if (classesLst.contains(classToFind)) {
-                return this;
-            }
-        }
-
-        StringBuilder builder = new StringBuilder();
-        for (String classFromElement : classes) {
-            if (builder.length() > 0) {
-                builder.append(", ");
-            }
-            builder.append(classFromElement);
-        }
-
-        super.failWithMessage(
-                "No selected elements has class: " + classToFind + " . Actual classes found : " + builder.toString());
         return this;
     }
 
     @Override
-    protected void failWithMessage(String errorMessage, Object... arguments) {
+    public FluentListSizeBuilder hasSize() {
+        return new FluentListSizeBuilder(actual.count(), this);
+    }
+
+    @Override
+    public FluentListAssert hasText(String textToFind) {
+        List<String> actualTexts = requiresNonEmpty(actual.texts());
+        if (actualTexts.stream().noneMatch(text -> text.contains(textToFind))) {
+            failWithMessage("No selected elements contains text: " + textToFind
+                    + ". Actual texts found: " + actualTexts);
+        }
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasTextMatching(String regexToBeMatched) {
+        List<String> actualTexts = requiresNonEmpty(actual.texts());
+        if (actualTexts.stream().noneMatch(text -> text.matches(regexToBeMatched))) {
+            failWithMessage("No selected elements contains text matching: " + regexToBeMatched
+                    + ". Actual texts found: " + actualTexts);
+        }
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasNotText(String textToFind) {
+        List<String> actualTexts = requiresNonEmpty(actual.texts());
+        for (String text : actualTexts) {
+            if (text.contains(textToFind)) {
+                failWithMessage(
+                        "At least one selected elements contains text: " + textToFind
+                                + ". Actual texts found: " + actualTexts);
+            }
+        }
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasId(String idToFind) {
+        List<String> actualIds = requiresNonEmpty(actual.ids());
+        if (!actualIds.contains(idToFind)) {
+            failWithMessage("No selected elements have id: " + idToFind
+                    + ". Actual ids found : " + actualIds);
+        }
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasClass(String classToFind) {
+        return validateHasClasses("No selected elements have class: ", classToFind);
+    }
+
+    @Override
+    public FluentListAssert hasClasses(String... classesToFind) {
+        return validateHasClasses("No selected element have classes: ", classesToFind);
+    }
+
+    @Override
+    public FluentListAssert hasNotClass(String htmlClass) {
+        notHasClasses("At least one selected element has class: ", htmlClass);
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasNotClasses(String... htmlClasses) {
+        notHasClasses("At least one selected element has classes: ", htmlClasses);
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasValue(String value) {
+        List<String> actualValues = requiresNonEmpty(actual.values());
+        if (!actualValues.contains(value)) {
+            failWithMessage("No selected elements have value: " + value
+                    + ". Actual values found : " + actualValues);
+        }
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasName(String name) {
+        List<String> actualNames = requiresNonEmpty(actual.names());
+        if (!actualNames.contains(name)) {
+            failWithMessage("No selected elements have name: " + name
+                    + ". Actual names found : " + actualNames);
+        }
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasTagName(String tagName) {
+        List<String> actualTags = requiresNonEmpty(actual.tagNames());
+        if (!actualTags.contains(tagName)) {
+            failWithMessage("No selected elements have tag: " + tagName
+                    + ". Actual tags found : " + actualTags);
+        }
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasDimension(Dimension dimension) {
+        List<Dimension> actualDimensions = requiresNonEmpty(actual.dimensions());
+        if (!actualDimensions.contains(dimension)) {
+            failWithMessage("No selected elements have dimension: " + dimension.toString()
+                    + ". Actual dimensions found : " + actualDimensions.toString());
+        }
+        return this;
+    }
+
+    @Override
+    public FluentListAssert hasAttributeValue(String attribute, String value) {
+        List<String> actualValues = requiresNonEmpty(actual.attributes(attribute));
+        if (!actualValues.contains(value)) {
+            failWithMessage("No selected elements have attribute " + attribute
+                    + " with value: " + value + ". Actual values found: " + actualValues);
+        }
+        return this;
+    }
+
+    @Override
+    public ListAssert<String> hasAttribute(String attribute) {
+        List<String> actualValues = requiresNonEmpty(actual.attributes(attribute));
+        if (actualValues.stream().allMatch(Objects::isNull)) {
+            failWithMessage("No selected element has attribute " + attribute);
+        }
+        return new ListAssert<>(actualValues);
+    }
+
+    @Override
+    public FluentListAssert hasNotAttribute(String attribute) {
+        List<String> actualValues = requiresNonEmpty(actual.attributes(attribute));
+        if (actualValues.stream().anyMatch(Objects::nonNull)) {
+            failWithMessage("At least one selected element has attribute " + attribute);
+        }
+        return this;
+    }
+
+    private FluentListAssert validateHasClasses(String message, String... classesToFind) {
+        List<String> elementsClasses = requiresNonEmpty(actual.attributes(CLASS_ATTRIBUTE));
+        for (String elementClass : elementsClasses) {
+            List<String> classesLst = getClasses(elementClass);
+            if (classesLst.containsAll(Arrays.asList(classesToFind))) {
+                return this;
+            }
+        }
+
+        String classesFromElement = String.join(", ", elementsClasses);
+        failWithMessage(
+                message + String.join(", ", classesToFind)
+                        + ". Actual classes found : " + classesFromElement);
+        return this;
+    }
+
+    private void notHasClasses(String message, String... htmlClasses) {
+        List<String> elementsClasses = requiresNonEmpty(actual.attributes(CLASS_ATTRIBUTE));
+        for (String elementClass : elementsClasses) {
+            if (elementClass != null && getClasses(elementClass).containsAll(Arrays.asList(htmlClasses))) {
+                failWithMessage(message + Arrays.asList(htmlClasses));
+            }
+        }
+    }
+
+    void failWithMessage(String errorMessage) {
         super.failWithMessage(errorMessage);
     }
 
+    private <T> List<T> requiresNonEmpty(List<T> elements) {
+        if (elements.isEmpty()) {
+            throw new AssertionError("List is empty. Please make sure you use correct selector.");
+        }
+        return elements;
+    }
 }

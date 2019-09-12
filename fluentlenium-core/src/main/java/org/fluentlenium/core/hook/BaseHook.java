@@ -1,14 +1,20 @@
 package org.fluentlenium.core.hook;
 
-import lombok.experimental.Delegate;
 import org.fluentlenium.core.DefaultFluentContainer;
 import org.fluentlenium.core.FluentControl;
 import org.fluentlenium.core.components.ComponentInstantiator;
+import org.openqa.selenium.By;
+import org.openqa.selenium.Dimension;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.Point;
+import org.openqa.selenium.Rectangle;
+import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.interactions.internal.Coordinates;
-import org.openqa.selenium.interactions.internal.Locatable;
+import org.openqa.selenium.interactions.Coordinates;
+import org.openqa.selenium.interactions.Locatable;
 import org.openqa.selenium.support.pagefactory.ElementLocator;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -36,7 +42,6 @@ public class BaseHook<T> extends DefaultFluentContainer implements FluentHook<T>
      *
      * @return underlying element
      */
-    @Delegate
     public final WebElement getElement() {
         return elementSupplier.get();
     }
@@ -51,9 +56,18 @@ public class BaseHook<T> extends DefaultFluentContainer implements FluentHook<T>
      *
      * @return underlying element locator
      */
-    @Delegate
     public final ElementLocator getElementLocator() {
         return locatorSupplier.get();
+    }
+
+
+    /**
+     * Get coordinates of the underlying element.
+     *
+     * @return coordinates of underlying element
+     */
+    public Coordinates getCoordinates() {
+        return ((Locatable) getElement()).getCoordinates();
     }
 
     /**
@@ -108,8 +122,79 @@ public class BaseHook<T> extends DefaultFluentContainer implements FluentHook<T>
         return toStringSupplier.get();
     }
 
-    @Override
-    public Coordinates getCoordinates() {
-        return ((Locatable) getElement()).getCoordinates();
+    public void sendKeys(CharSequence... charSequences) {
+        getElement().sendKeys(charSequences);
+    }
+
+    public <X> X getScreenshotAs(OutputType<X> outputType) throws WebDriverException {
+        return getElement().getScreenshotAs(outputType);
+    }
+
+    public WebElement findElement(By by) {
+        return getElement().findElement(by);
+    }
+
+    public boolean isSelected() {
+        return getElement().isSelected();
+    }
+
+    public Rectangle getRect() {
+        return getElement().getRect();
+    }
+
+    public boolean isDisplayed() {
+        return getElement().isDisplayed();
+    }
+
+    public boolean isEnabled() {
+        return getElement().isEnabled();
+    }
+
+    public List<WebElement> findElements(By by) {
+        return getElement().findElements(by);
+    }
+
+    public void submit() {
+        getElement().submit();
+    }
+
+    public String getCssValue(String propertyName) {
+        return getElement().getCssValue(propertyName);
+    }
+
+    public String getTagName() {
+        return getElement().getTagName();
+    }
+
+    public Point getLocation() {
+        return getElement().getLocation();
+    }
+
+    public Dimension getSize() {
+        return getElement().getSize();
+    }
+
+    public String getText() {
+        return getElement().getText();
+    }
+
+    public void click() {
+        getElement().click();
+    }
+
+    public String getAttribute(String name) {
+        return getElement().getAttribute(name);
+    }
+
+    public void clear() {
+        getElement().clear();
+    }
+
+    public WebElement findElement() {
+        return this.getElementLocator().findElement();
+    }
+
+    public List<WebElement> findElements() {
+        return this.getElementLocator().findElements();
     }
 }

@@ -27,7 +27,7 @@ public @interface Wait {
      *
      * @return timeout value
      */
-    long timeout() default -1L;
+    long timeout() default 5000L;
 
     /**
      * Time unit used for timeout value.
@@ -41,7 +41,7 @@ public @interface Wait {
      *
      * @return polling interval value
      */
-    long pollingInterval() default -1L;
+    long pollingInterval() default 500L;
 
     /**
      * Time unit used for polling interval.
@@ -62,5 +62,5 @@ public @interface Wait {
      *
      * @return array of ignored throwable
      */
-    java.lang.Class<? extends Throwable>[] ignoreAll() default {};
+    Class<? extends Throwable>[] ignoreAll() default {};
 }

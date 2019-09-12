@@ -7,21 +7,26 @@ import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Paths;
 
 import javax.imageio.ImageIO;
 
 import org.apache.commons.io.FileUtils;
+import org.fluentlenium.core.ScreenshotNotCreatedException;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 
+/**
+ * Provides logic for screenshot and image manipulation and conversion.
+ */
 public class ImageUtils {
 
-    public static final String ERROR_WHILE_CONVERTING_IMAGE = "Error while converting image";
+    private static final String ERROR_WHILE_CONVERTING_IMAGE = "Error while converting image";
     private final WebDriver driver;
 
     public ImageUtils(WebDriver driver) {
@@ -32,6 +37,14 @@ public class ImageUtils {
         return driver;
     }
 
+    /**
+     * Accepts the current alert window and takes a screenshot.
+     * <p>
+     * The FluentLenium logo is also added on to the screenshot.
+     *
+     * @return the screenshot as a byte array
+     * @throws ScreenshotNotCreatedException if a problem occurred during reading the screenshot file
+     */
     public byte[] handleAlertAndTakeScreenshot() {
         String alertText = getDriver().switchTo().alert().getText();
         getDriver().switchTo().alert().accept();
@@ -44,18 +57,26 @@ public class ImageUtils {
             FileUtils.deleteQuietly(scrFile);
             return toByteArray(stitchImages(screenshotImage, alertImage, false));
         } catch (IOException e) {
-            throw new RuntimeException("Error while reading screenshot file.", e);
+            throw new ScreenshotNotCreatedException("Error while reading screenshot file.", e);
         }
     }
 
-    public static BufferedImage toBufferedImage(String fileName) throws FileNotFoundException {
-        InputStream is = new FileInputStream(new File(fileName));
+    /**
+     * Converts the file referenced by the argument file name to a {@link BufferedImage}.
+     *
+     * @param fileName the name of the file to convert
+     * @return the converted BufferedImage
+     * @throws NoSuchFileException if the argument file cannot be found
+     * @throws ScreenshotNotCreatedException      if a problem occurred during image conversion
+     */
+    public static BufferedImage toBufferedImage(String fileName) throws IOException {
+        InputStream is = Files.newInputStream(Paths.get(fileName));
         try {
             BufferedImage image = ImageIO.read(is);
             is.close();
             return image;
         } catch (IOException e) {
-            throw new RuntimeException(ERROR_WHILE_CONVERTING_IMAGE, e);
+            throw new ScreenshotNotCreatedException(ERROR_WHILE_CONVERTING_IMAGE, e);
         }
     }
 
@@ -65,7 +86,7 @@ public class ImageUtils {
             ImageIO.write(image, "png", byteArrayOutputStream);
             return byteArrayOutputStream.toByteArray();
         } catch (IOException e) {
-            throw new RuntimeException(ERROR_WHILE_CONVERTING_IMAGE, e);
+            throw new ScreenshotNotCreatedException(ERROR_WHILE_CONVERTING_IMAGE, e);
         }
     }
 
@@ -79,7 +100,8 @@ public class ImageUtils {
             g.drawImage(image2, image1.getWidth() - image2.getWidth(), image1.getHeight() - image2.getHeight(), null);
             return stitchedImage;
         } else {
-            BufferedImage stitchedImage = new BufferedImage(image1.getWidth(), image1.getHeight() + image2.getHeight(), BufferedImage.TYPE_INT_RGB);
+            BufferedImage stitchedImage = new BufferedImage(image1.getWidth(), image1.getHeight() + image2.getHeight(),
+                    BufferedImage.TYPE_INT_RGB);
             Graphics graphics = stitchedImage.getGraphics();
             graphics.drawImage(image1, 0, 0, null);
             graphics.drawImage(image2, 0, image1.getHeight(), null);
@@ -89,7 +111,7 @@ public class ImageUtils {
         }
     }
 
-    private BufferedImage generateAlertImageWithLogo(String alertText, int screenshotWidth) throws FileNotFoundException {
+    private BufferedImage generateAlertImageWithLogo(String alertText, int screenshotWidth) throws IOException {
         BufferedImage alertImage = generateImageWithText(alertText, screenshotWidth, 200);
         BufferedImage logo = toBufferedImage(ImageUtils.class.getResource("/fl_logo.png").getPath());
         return stitchImages(alertImage, logo, true);

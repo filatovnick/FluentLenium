@@ -1,33 +1,32 @@
 package org.fluentlenium.adapter;
 
-import org.fluentlenium.configuration.Configuration;
-import org.fluentlenium.configuration.ConfigurationFactoryProvider;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.fluentlenium.configuration.ConfigurationProperties;
 import org.fluentlenium.configuration.WebDrivers;
-import org.fluentlenium.core.FluentControl;
+import org.fluentlenium.core.FluentControlImpl;
 import org.fluentlenium.core.FluentDriver;
-import org.fluentlenium.core.SeleniumDriverControl;
 import org.fluentlenium.core.inject.ContainerContext;
 import org.fluentlenium.core.inject.ContainerFluentControl;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.support.events.EventFiringWebDriver;
 
-import lombok.experimental.Delegate;
-
 /**
  * Generic adapter to {@link FluentDriver}.
  */
-public class FluentAdapter implements FluentControl {
+public class FluentAdapter extends FluentControlImpl {
 
-    private final FluentControlContainer controlContainer;
-
-    private final Configuration configuration = ConfigurationFactoryProvider.newConfiguration(getClass());
+    private static final Set<String> IGNORED_EXCEPTIONS = Stream.of(
+            "org.junit.internal.AssumptionViolatedException",
+            "org.testng.SkipException")
+            .collect(Collectors.toSet());
 
     /**
      * Creates a new fluent adapter.
      */
     public FluentAdapter() {
-        this(new DefaultFluentControlContainer());
+        super();
     }
 
     /**
@@ -36,22 +35,21 @@ public class FluentAdapter implements FluentControl {
      * @param controlContainer control interface container
      */
     public FluentAdapter(FluentControlContainer controlContainer) {
-        this.controlContainer = controlContainer;
+        super(controlContainer);
     }
 
     /**
-     * Get the test adapter configuration.
+     * Creates a new fluent adapter, using given control interface container.
      *
-     * @return configuration
+     * @param controlContainer control interface container
+     * @param clazz            class from which annotation configuration will be looked up
      */
-    @Delegate
-    public Configuration getConfiguration() {
-        return configuration;
+    public FluentAdapter(FluentControlContainer controlContainer, Class clazz) {
+        super(controlContainer, clazz);
     }
 
-    @Delegate(types = FluentControl.class, excludes = {SeleniumDriverControl.class, Configuration.class})
     // We want getDriver to be final.
-    private ContainerFluentControl getFluentControl() {
+    public ContainerFluentControl getFluentControl() {
         FluentControlContainer fluentControlContainer = getControlContainer();
 
         if (fluentControlContainer == null) {
@@ -77,15 +75,6 @@ public class FluentAdapter implements FluentControl {
     @Override
     public final WebDriver getDriver() {
         return getFluentControl() == null ? null : getFluentControl().getDriver();
-    }
-
-    /**
-     * Get the control interface container
-     *
-     * @return control interface container
-     */
-    protected FluentControlContainer getControlContainer() {
-        return controlContainer;
     }
 
     /**
@@ -148,5 +137,27 @@ public class FluentAdapter implements FluentControl {
             webDriver = new EventFiringWebDriver(webDriver);
         }
         return webDriver;
+    }
+
+    /**
+     * Checks if the exception should be ignored and not reported as a test case fail
+     *
+     * @param e - the exception to check is it defined in ignored exceptions set
+     * @return boolean
+     */
+    boolean isIgnoredException(Throwable e) {
+        boolean isIgnored = false;
+        if (e != null) {
+            Class clazz = e.getClass();
+            do {
+                if (IGNORED_EXCEPTIONS.contains(clazz.getName())) {
+                    isIgnored = true;
+                    break;
+                }
+                clazz = clazz.getSuperclass();
+            } while (clazz != Object.class);
+        }
+
+        return isIgnored;
     }
 }

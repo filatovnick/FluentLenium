@@ -1,85 +1,69 @@
 package org.fluentlenium.core;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.file.Paths;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import static org.fluentlenium.core.domain.ElementUtils.getWrappedElement;
+import static org.fluentlenium.utils.Preconditions.checkArgument;
+import static org.fluentlenium.utils.Preconditions.checkState;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.fluentlenium.configuration.Configuration;
 import org.fluentlenium.core.action.KeyboardActions;
 import org.fluentlenium.core.action.MouseActions;
 import org.fluentlenium.core.action.WindowAction;
 import org.fluentlenium.core.alert.Alert;
 import org.fluentlenium.core.alert.AlertImpl;
-import org.fluentlenium.core.components.ComponentInstantiator;
 import org.fluentlenium.core.components.ComponentsManager;
 import org.fluentlenium.core.css.CssControl;
 import org.fluentlenium.core.css.CssControlImpl;
+import org.fluentlenium.core.css.CssSupport;
 import org.fluentlenium.core.domain.FluentList;
 import org.fluentlenium.core.domain.FluentWebElement;
 import org.fluentlenium.core.events.ComponentsEventsRegistry;
 import org.fluentlenium.core.events.EventsRegistry;
-import org.fluentlenium.core.inject.DefaultContainerInstanciator;
+import org.fluentlenium.core.inject.ContainerContext;
+import org.fluentlenium.core.inject.DefaultContainerInstantiator;
 import org.fluentlenium.core.inject.FluentInjector;
+import org.fluentlenium.core.performance.PerformanceTiming;
+import org.fluentlenium.core.performance.DefaultPerformanceTiming;
 import org.fluentlenium.core.script.FluentJavascript;
 import org.fluentlenium.core.search.Search;
-import org.fluentlenium.core.search.SearchFilter;
 import org.fluentlenium.core.wait.FluentWait;
-import org.fluentlenium.utils.ImageUtils;
 import org.fluentlenium.utils.UrlUtils;
-import org.openqa.selenium.By;
 import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.Cookie;
-import org.openqa.selenium.HasCapabilities;
 import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.OutputType;
+import org.openqa.selenium.SearchContext;
 import org.openqa.selenium.TakesScreenshot;
-import org.openqa.selenium.UnhandledAlertException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.internal.WrapsDriver;
-import org.openqa.selenium.internal.WrapsElement;
+import org.openqa.selenium.WrapsElement;
 import org.openqa.selenium.support.events.EventFiringWebDriver;
 
-import lombok.experimental.Delegate;
+import java.util.Date;
+import java.util.Set;
 
 /**
- * Util Class which offers some shortcut to webdriver methods
+ * Offers some shortcut to WebDriver methods using a wrapped {@link WebDriver} instance.
+ *
+ * It provides methods to work with mouse, keyboard and windows.
  */
 @SuppressWarnings("PMD.GodClass")
-public class FluentDriver implements FluentControl { // NOPMD GodClass
-    @Delegate
+public class FluentDriver extends AbstractFluentDriverSearchControl { // NOPMD GodClass
     private final Configuration configuration;
-
-    @Delegate(types = ComponentInstantiator.class)
     private final ComponentsManager componentsManager;
-
     private final EventsRegistry events;
-
     private final ComponentsEventsRegistry componentsEventsRegistry;
-
-    @Delegate
     private final FluentInjector fluentInjector;
-
-    @Delegate
     private final CssControl cssControl; // NOPMD UnusedPrivateField
-
     private final Search search;
-
     private final WebDriver driver;
-
     private final MouseActions mouseActions;
-
     private final KeyboardActions keyboardActions;
-
     private final WindowAction windowAction;
+    private final FluentDriverScreenshotPersister screenshotPersister;
+    private final FluentDriverWrappedCapabilitiesProvider capabilitiesProvider;
+    private final FluentDriverHtmlDumper htmlDumper;
+    private final FluentDriverWait driverWait;
+    private final PerformanceTiming performanceTiming;
 
     /**
      * Wrap the driver into a Fluent driver.
@@ -89,8 +73,13 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
      * @param adapter       adapter fluent control interface
      */
     public FluentDriver(WebDriver driver, Configuration configuration, FluentControl adapter) {
+        super(adapter);
         this.configuration = configuration;
+        screenshotPersister = new FluentDriverScreenshotPersister(configuration, driver);
+        capabilitiesProvider = new FluentDriverWrappedCapabilitiesProvider();
+        htmlDumper = new FluentDriverHtmlDumper(configuration);
         componentsManager = new ComponentsManager(adapter);
+        driverWait = new FluentDriverWait(configuration);
         this.driver = driver;
         search = new Search(driver, this, componentsManager, adapter);
         if (driver instanceof EventFiringWebDriver) {
@@ -102,27 +91,16 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
         }
         mouseActions = new MouseActions(driver);
         keyboardActions = new KeyboardActions(driver);
-        fluentInjector = new FluentInjector(adapter, events, componentsManager, new DefaultContainerInstanciator(this));
+        fluentInjector = new FluentInjector(adapter, events, componentsManager, new DefaultContainerInstantiator(this));
         cssControl = new CssControlImpl(adapter, adapter);
         windowAction = new WindowAction(adapter, componentsManager.getInstantiator(), driver);
+        performanceTiming = new DefaultPerformanceTiming(driver);
 
-        configureDriver(); // NOPMD ConstructorCallsOverridableMethod
+        new FluentDriverTimeoutConfigurer(configuration, driver).configureDriver();
     }
 
-    private void configureDriver() {
-        if (getDriver() != null && getDriver().manage() != null && getDriver().manage().timeouts() != null) {
-            if (configuration.getPageLoadTimeout() != null) {
-                getDriver().manage().timeouts().pageLoadTimeout(configuration.getPageLoadTimeout(), TimeUnit.MILLISECONDS);
-            }
-
-            if (configuration.getImplicitlyWait() != null) {
-                getDriver().manage().timeouts().implicitlyWait(configuration.getImplicitlyWait(), TimeUnit.MILLISECONDS);
-            }
-
-            if (configuration.getScriptTimeout() != null) {
-                getDriver().manage().timeouts().setScriptTimeout(configuration.getScriptTimeout(), TimeUnit.MILLISECONDS);
-            }
-        }
+    public Configuration getConfiguration() {
+        return configuration;
     }
 
     @Override
@@ -132,32 +110,11 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
 
     @Override
     public void takeHtmlDump(String fileName) {
-        File destFile = null;
-        try {
-            if (configuration.getHtmlDumpPath() == null) {
-                destFile = new File(fileName);
-            } else {
-                destFile = Paths.get(configuration.getHtmlDumpPath(), fileName).toFile();
-            }
-            String html;
+        htmlDumper.takeHtmlDump(fileName, () -> {
             synchronized (FluentDriver.class) {
-                html = $("html").first().html();
+                return $("html").first().html();
             }
-            FileUtils.write(destFile, html, "UTF-8");
-        } catch (Exception e) {
-            if (destFile == null) {
-                destFile = new File(fileName);
-            }
-            try {
-                PrintWriter printWriter = new PrintWriter(destFile, "UTF-8");
-                printWriter.write("Can't dump HTML");
-                printWriter.println();
-                e.printStackTrace(printWriter);
-                IOUtils.closeQuietly(printWriter);
-            } catch (IOException e1) {
-                throw new RuntimeException("error when dumping HTML", e); //NOPMD PreserveStackTrace
-            }
-        }
+        });
     }
 
     @Override
@@ -175,34 +132,7 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
         if (!canTakeScreenShot()) {
             throw new WebDriverException("Current browser doesn't allow taking screenshot.");
         }
-
-        byte[] screenshot = prepareScreenshot();
-        persistScreenshot(fileName, screenshot);
-    }
-
-    private void persistScreenshot(String fileName, byte[] screenshot) {
-        try {
-            File destFile;
-            if (configuration.getScreenshotPath() == null) {
-                destFile = new File(fileName);
-            } else {
-                destFile = Paths.get(configuration.getScreenshotPath(), fileName).toFile();
-            }
-            FileUtils.writeByteArrayToFile(destFile, screenshot);
-        } catch (IOException e) {
-            throw new RuntimeException("Error when taking the screenshot", e);
-        }
-    }
-
-    private byte[] prepareScreenshot() {
-        byte[] screenshot;
-        try {
-            screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
-        } catch (UnhandledAlertException uae) {
-            ImageUtils imageUtils = new ImageUtils(getDriver());
-            screenshot = imageUtils.handleAlertAndTakeScreenshot();
-        }
-        return screenshot;
+        screenshotPersister.persistScreenshot(fileName);
     }
 
     @Override
@@ -210,18 +140,11 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
         return driver;
     }
 
-    private Search getSearch() {
-        return search;
-    }
-
     @Override
     public EventsRegistry events() {
-        if (events == null) {
-            throw new IllegalStateException("An EventFiringWebDriver instance is required to use events. "
-                    + "You should set 'eventsEnabled' configuration property to 'true' "
-                    + "or override newWebDriver() to build an EventFiringWebDriver.");
-        }
-        return events;
+        return checkState(events, "An EventFiringWebDriver instance is required to use events. "
+                + "You should set 'eventsEnabled' configuration property to 'true' "
+                + "or override newWebDriver() to build an EventFiringWebDriver.");
     }
 
     @Override
@@ -241,16 +164,7 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
 
     @Override
     public FluentWait await() {
-        FluentWait fluentWait = new FluentWait(this);
-        Long atMost = configuration.getAwaitAtMost();
-        if (atMost != null) {
-            fluentWait.atMost(atMost);
-        }
-        Long pollingEvery = configuration.getAwaitPollingEvery();
-        if (pollingEvery != null) {
-            fluentWait.pollingEvery(pollingEvery);
-        }
-        return fluentWait;
+        return driverWait.await(this);
     }
 
     @Override
@@ -261,13 +175,6 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
     @Override
     public Cookie getCookie(String name) {
         return getDriver().manage().getCookieNamed(name);
-    }
-
-    private String buildUrl(String url) {
-        String currentUrl = getDriver().getCurrentUrl();
-        String baseUrl = UrlUtils.sanitizeBaseUrl(getBaseUrl(), currentUrl);
-
-        return UrlUtils.concat(baseUrl, url);
     }
 
     @Override
@@ -282,6 +189,13 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
         return currentUrl;
     }
 
+    private String buildUrl(String url) {
+        String currentUrl = getDriver().getCurrentUrl();
+        String baseUrl = UrlUtils.sanitizeBaseUrl(getBaseUrl(), currentUrl);
+
+        return UrlUtils.concat(baseUrl, url);
+    }
+
     @Override
     public String pageSource() {
         return getDriver().getPageSource();
@@ -289,28 +203,20 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
 
     @Override
     public <P extends FluentPage> P goTo(P page) {
-        if (page == null) {
-            throw new IllegalArgumentException("Page is mandatory");
-        }
+        checkArgument(page, "It is required to specify an instance of FluentPage for navigation.");
         page.go();
         return page;
     }
 
     @Override
     public void goTo(String url) {
-        if (url == null) {
-            throw new IllegalArgumentException("Url is mandatory");
-        }
-
+        checkArgument(url, "It is required to specify a URL to navigate to.");
         getDriver().get(buildUrl(url));
     }
 
     @Override
     public void goToInNewTab(String url) {
-        if (url == null) {
-            throw new IllegalArgumentException("Url is mandatory");
-        }
-
+        checkArgument(url, "It is required to specify a URL to navigate to (in a new tab).");
         String newTab;
         synchronized (getClass()) {
             Set<String> initialTabs = getDriver().getWindowHandles();
@@ -325,15 +231,7 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
 
     @Override
     public Capabilities capabilities() {
-        WebDriver currentDriver = getDriver();
-        Capabilities capabilities = currentDriver instanceof HasCapabilities
-                ? ((HasCapabilities) currentDriver).getCapabilities()
-                : null;
-        while (currentDriver instanceof WrapsDriver && capabilities == null) {
-            currentDriver = ((WrapsDriver) currentDriver).getWrappedDriver();
-            capabilities = currentDriver instanceof HasCapabilities ? ((HasCapabilities) currentDriver).getCapabilities() : null;
-        }
-        return capabilities;
+        return capabilitiesProvider.getCapabilities(getDriver());
     }
 
     @Override
@@ -347,66 +245,6 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
     }
 
     @Override
-    public FluentList<FluentWebElement> $(String selector, SearchFilter... filters) {
-        return find(selector, filters);
-    }
-
-    @Override
-    public FluentWebElement el(String selector, SearchFilter... filters) {
-        return find(selector, filters).first();
-    }
-
-    @Override
-    public FluentList<FluentWebElement> $(SearchFilter... filters) {
-        return find(filters);
-    }
-
-    @Override
-    public FluentWebElement el(SearchFilter... filters) {
-        return find(filters).first();
-    }
-
-    @Override
-    public FluentList<FluentWebElement> $(By locator, SearchFilter... filters) {
-        return find(locator, filters);
-    }
-
-    @Override
-    public FluentWebElement el(By locator, SearchFilter... filters) {
-        return find(locator, filters).first();
-    }
-
-    @Override
-    public FluentList<FluentWebElement> find(String selector, SearchFilter... filters) {
-        return getSearch().find(selector, filters);
-    }
-
-    @Override
-    public FluentList<FluentWebElement> find(By locator, SearchFilter... filters) {
-        return getSearch().find(locator, filters);
-    }
-
-    @Override
-    public FluentList<FluentWebElement> find(SearchFilter... filters) {
-        return getSearch().find(filters);
-    }
-
-    @Override
-    public FluentList<FluentWebElement> find(List<WebElement> rawElements) {
-        return getSearch().find(rawElements);
-    }
-
-    @Override
-    public FluentList<FluentWebElement> $(List<WebElement> rawElements) {
-        return getSearch().$(rawElements);
-    }
-
-    @Override
-    public FluentWebElement el(WebElement rawElement) {
-        return getSearch().el(rawElement);
-    }
-
-    @Override
     public void switchTo(FluentList<? extends FluentWebElement> elements) {
         switchTo(elements.first());
     }
@@ -417,8 +255,8 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
             getDriver().switchTo().defaultContent();
         } else {
             WebElement target = element.getElement();
-            while (target instanceof WrapsElement && target != ((WrapsElement) target).getWrappedElement()) {
-                target = ((WrapsElement) target).getWrappedElement();
+            while (target instanceof WrapsElement && target != getWrappedElement(target)) {
+                target = getWrappedElement(target);
             }
             getDriver().switchTo().frame(target);
         }
@@ -457,5 +295,39 @@ public class FluentDriver implements FluentControl { // NOPMD GodClass
         if (componentsEventsRegistry != null) {
             componentsEventsRegistry.close();
         }
+    }
+
+    @Override
+    protected ComponentsManager getComponentsManager() {
+        return componentsManager;
+    }
+
+    @Override
+    protected Search getSearch() {
+        return search;
+    }
+
+    @Override
+    public ContainerContext inject(Object container) {
+        return fluentInjector.inject(container);
+    }
+
+    @Override
+    public <T> T newInstance(Class<T> cls) {
+        return fluentInjector.newInstance(cls);
+    }
+
+    @Override
+    public ContainerContext injectComponent(Object componentContainer, Object parentContainer, SearchContext searchContext) {
+        return fluentInjector.injectComponent(componentContainer, parentContainer, searchContext);
+    }
+
+    @Override
+    public CssSupport css() {
+        return cssControl.css();
+    }
+
+    public PerformanceTiming performanceTiming() {
+        return performanceTiming;
     }
 }

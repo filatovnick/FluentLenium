@@ -1,5 +1,6 @@
 package org.fluentlenium.core.wait;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +39,7 @@ public class FluentWait
      */
     public FluentWait(FluentControl control) {
         wait = new org.openqa.selenium.support.ui.FluentWait<>(control);
-        wait.withTimeout(5, TimeUnit.SECONDS);
+        wait.withTimeout(Duration.ofSeconds(5));
         driver = control.getDriver();
         useDefaultException = true;
     }
@@ -49,25 +50,15 @@ public class FluentWait
     }
 
     @Override
-    public FluentWait atMost(long duration, TimeUnit unit) {
-        wait.withTimeout(duration, unit);
+    public FluentWait atMost(Duration duration) {
+        wait.withTimeout(duration);
         return this;
     }
 
     @Override
-    public FluentWait atMost(long duration) {
-        return atMost(duration, TimeUnit.MILLISECONDS);
-    }
-
-    @Override
-    public FluentWait pollingEvery(long duration, TimeUnit unit) {
-        wait.pollingEvery(duration, unit);
+    public FluentWait pollingEvery(Duration duration) {
+        wait.pollingEvery(duration);
         return this;
-    }
-
-    @Override
-    public FluentWait pollingEvery(long duration) {
-        return pollingEvery(duration, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -89,15 +80,8 @@ public class FluentWait
     }
 
     @Override
-    public FluentWait withMessage(String message) {
-        wait.withMessage(message);
-        messageDefined = true;
-        return this;
-    }
-
-    @Override
     public FluentWait withMessage(Supplier<String> message) {
-        wait.withMessage(message::get);
+        wait.withMessage(message);
         messageDefined = true;
         return this;
     }
@@ -198,7 +182,6 @@ public class FluentWait
         return WaitConditionProxy.each(this, "Elements " + elements, elements);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public FluentWaitWindowConditions untilWindow(String windowName) {
         return new FluentWaitWindowConditions(this, windowName);
@@ -221,14 +204,9 @@ public class FluentWait
         try {
             timeUnit.sleep(amount);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            throw new WaitInterruptedException("Explicit wait was interrupted.", e);
         }
 
         return this;
-    }
-
-    @Override
-    public FluentWait explicitlyFor(long amount) {
-        return explicitlyFor(amount, TimeUnit.MILLISECONDS);
     }
 }

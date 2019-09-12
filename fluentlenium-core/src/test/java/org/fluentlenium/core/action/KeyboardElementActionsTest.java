@@ -1,6 +1,7 @@
 package org.fluentlenium.core.action;
 
 import org.assertj.core.api.Assertions;
+import org.fluentlenium.core.domain.FluentWebElement;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -10,11 +11,11 @@ import org.mockito.junit.MockitoJUnitRunner;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.interactions.Coordinates;
 import org.openqa.selenium.interactions.HasInputDevices;
 import org.openqa.selenium.interactions.Keyboard;
+import org.openqa.selenium.interactions.Locatable;
 import org.openqa.selenium.interactions.Mouse;
-import org.openqa.selenium.interactions.internal.Coordinates;
-import org.openqa.selenium.internal.Locatable;
 
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -35,6 +36,9 @@ public class KeyboardElementActionsTest {
     private LocatableElement element;
 
     @Mock
+    private FluentWebElement fluentWebElement;
+
+    @Mock
     private Coordinates coordinates;
 
     @Before
@@ -51,8 +55,19 @@ public class KeyboardElementActionsTest {
     }
 
     @Test
-    public void testKeyDown() {
+    public void testKeyDownWebElement() {
         KeyboardElementActions actions = new KeyboardElementActions(driver, element);
+        actions.keyDown(Keys.SHIFT);
+
+        verify(mouse).click(coordinates);
+        verify(keyboard).pressKey(Keys.SHIFT);
+    }
+
+    @Test
+    public void testKeyDownFluentWebElement() {
+        when(fluentWebElement.getElement()).thenReturn(element);
+
+        KeyboardElementActions actions = new KeyboardElementActions(driver, fluentWebElement);
         actions.keyDown(Keys.SHIFT);
 
         verify(mouse).click(coordinates);

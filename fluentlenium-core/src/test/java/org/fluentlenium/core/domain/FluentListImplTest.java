@@ -1,5 +1,6 @@
 package org.fluentlenium.core.domain;
 
+import com.google.common.collect.Lists;
 import org.fluentlenium.adapter.FluentAdapter;
 import org.fluentlenium.core.FluentControl;
 import org.fluentlenium.core.components.ComponentInstantiator;
@@ -15,6 +16,9 @@ import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 
+import java.time.Duration;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -24,7 +28,11 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit test for {@link FluentListImpl}.
+ */
 @RunWith(MockitoJUnitRunner.class)
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessivePublicCount"})
 public class FluentListImplTest {
     @Mock
     private FluentWebElement element1;
@@ -83,7 +91,36 @@ public class FluentListImplTest {
         assertThat(singleList.single()).isSameAs(element2);
 
         assertThatThrownBy(() -> list.single()).isExactlyInstanceOf(AssertionError.class)
-                .hasMessageContaining("list should contain one element only but there are");
+                                               .hasMessageContaining("list should contain one element only but there are");
+    }
+
+    //count()
+
+    @Test
+    public void shouldReturnListCountWhenProxyExists() {
+        assertThat(list.count()).isEqualTo(3);
+    }
+
+    @Test
+    public void shouldReturnTrueForPresentIfListSizeIsGreaterThanZeroWhenNoLocatorHandlerIsAvailableForProxy() {
+        assertThat(list.present()).isTrue();
+    }
+
+    @Test
+    public void shouldReturnFalseForPresentIfListSizeNotGreaterThanZeroWhenNoLocatorHandlerIsAvailableForProxy() {
+        assertThat(emptyList.present()).isFalse();
+    }
+
+    //waitAndClick()
+
+    @Test
+    public void shouldThrowNoSuchElementExceptionForWaitAndClickWhenListIsEmpty() {
+        assertThatThrownBy(() -> emptyList.waitAndClick()).isInstanceOf(NoSuchElementException.class);
+    }
+
+    @Test
+    public void shouldThrowNoSuchElementExceptionForWaitAndClickSecondsWhenListIsEmpty() {
+        assertThatThrownBy(() -> emptyList.waitAndClick(Duration.ofSeconds(4))).isInstanceOf(NoSuchElementException.class);
     }
 
     @Test
@@ -127,7 +164,8 @@ public class FluentListImplTest {
         when(element2.conditions().clickable()).thenReturn(false);
         when(element3.conditions().clickable()).thenReturn(false);
 
-        assertThatThrownBy(() -> list.contextClick()).isExactlyInstanceOf(NoSuchElementException.class).hasMessageContaining("has no element clickable");
+        assertThatThrownBy(() -> list.contextClick()).isExactlyInstanceOf(NoSuchElementException.class)
+                                                     .hasMessageContaining("has no element clickable");
     }
 
     @Test
@@ -146,7 +184,8 @@ public class FluentListImplTest {
         when(element2.conditions().clickable()).thenReturn(false);
         when(element3.conditions().clickable()).thenReturn(false);
 
-        assertThatThrownBy(() -> list.contextClick()).isExactlyInstanceOf(NoSuchElementException.class).hasMessageContaining("has no element clickable");
+        assertThatThrownBy(() -> list.contextClick()).isExactlyInstanceOf(NoSuchElementException.class)
+                                                     .hasMessageContaining("has no element clickable");
     }
 
     @Test
@@ -165,7 +204,8 @@ public class FluentListImplTest {
         when(element2.conditions().clickable()).thenReturn(false);
         when(element3.conditions().clickable()).thenReturn(false);
 
-        assertThatThrownBy(() -> list.contextClick()).isExactlyInstanceOf(NoSuchElementException.class).hasMessageContaining("has no element clickable");
+        assertThatThrownBy(() -> list.contextClick()).isExactlyInstanceOf(NoSuchElementException.class)
+                                                     .hasMessageContaining("has no element clickable");
     }
 
     @Test
@@ -204,8 +244,28 @@ public class FluentListImplTest {
         when(element2.enabled()).thenReturn(false);
         when(element3.enabled()).thenReturn(false);
 
-        assertThatThrownBy(() -> list.submit()).isExactlyInstanceOf(NoSuchElementException.class).hasMessageContaining("has no element enabled");
+        assertThatThrownBy(() -> list.submit()).isExactlyInstanceOf(NoSuchElementException.class)
+                                               .hasMessageContaining("has no element enabled");
+    }
 
+    @Test
+    public void shouldDoClear() {
+        when(element2.enabled()).thenReturn(true);
+        when(element3.enabled()).thenReturn(true);
+
+        list.clear();
+
+        verify(element1, never()).clear();
+        verify(element2).clear();
+        verify(element3).clear();
+
+        assertThatThrownBy(() -> emptyList.clear()).isExactlyInstanceOf(NoSuchElementException.class);
+
+        when(element2.enabled()).thenReturn(false);
+        when(element3.enabled()).thenReturn(false);
+
+        assertThatThrownBy(() -> list.clear()).isExactlyInstanceOf(NoSuchElementException.class)
+                                              .hasMessageContaining("has no element enabled");
     }
 
     @Test
@@ -224,7 +284,45 @@ public class FluentListImplTest {
         when(element2.enabled()).thenReturn(false);
         when(element3.enabled()).thenReturn(false);
 
-        assertThatThrownBy(() -> list.submit()).isExactlyInstanceOf(NoSuchElementException.class).hasMessageContaining("has no element enabled");
+        assertThatThrownBy(() -> list.clearAll()).isExactlyInstanceOf(NoSuchElementException.class)
+                                                 .hasMessageContaining("has no element enabled");
+    }
+
+    @Test
+    public void testClearAllReactInputs() {
+        when(element2.enabled()).thenReturn(true);
+        when(element3.enabled()).thenReturn(true);
+
+        list.clearAllReactInputs();
+
+        verify(element1, never()).clearReactInput();
+        verify(element2).clearReactInput();
+        verify(element3).clearReactInput();
+
+        assertThatThrownBy(() -> emptyList.clearAllReactInputs()).isExactlyInstanceOf(NoSuchElementException.class);
+
+        when(element2.enabled()).thenReturn(false);
+        when(element3.enabled()).thenReturn(false);
+
+        assertThatThrownBy(() -> list.clearAllReactInputs()).isExactlyInstanceOf(NoSuchElementException.class)
+                                                            .hasMessageContaining("has no element enabled");
+    }
+
+    @Test
+    public void shouldClearList() {
+        list.clearList();
+
+        assertThat(((FluentListImpl<FluentWebElement>) list).getList()).hasSize(0);
+    }
+
+    @Test
+    public void shouldReturnOptionalIfListIsPresent() {
+        assertThat(list.optional()).hasValue(list);
+    }
+
+    @Test
+    public void shouldReturnEmptyOptionalIfListIsNotPresent() {
+        assertThat(emptyList.optional()).isEmpty();
     }
 
     @Test
@@ -380,6 +478,21 @@ public class FluentListImplTest {
     public void testAs() {
         FluentList<Component> as = list.as(Component.class);
         assertThat(as).hasSameSizeAs(list);
+    }
+
+    @Test
+    public void testToElements() {
+        WebElement webElement1 = mock(WebElement.class);
+        WebElement webElement2 = mock(WebElement.class);
+        WebElement webElement3 = mock(WebElement.class);
+
+        when(element1.getElement()).thenReturn(webElement1);
+        when(element2.getElement()).thenReturn(webElement2);
+        when(element3.getElement()).thenReturn(webElement3);
+
+        List<WebElement> expectedElements = Lists.newArrayList(webElement1, webElement2, webElement3);
+
+        assertThat(list.toElements()).containsExactlyInAnyOrderElementsOf(expectedElements);
     }
 
     private static class Component extends FluentWebElement {

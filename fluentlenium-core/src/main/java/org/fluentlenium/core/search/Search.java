@@ -15,6 +15,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import static java.util.Collections.singletonList;
+
 /**
  * Perform element searchs in a given context.
  */
@@ -62,7 +64,7 @@ public class Search implements SearchControl<FluentWebElement> {
             }
         }
         List<WebElement> select = selectList(stringBuilder.toString());
-        FluentList fluentList = instantiator.asFluentList(select);
+        FluentList<FluentWebElement> fluentList = instantiator.asFluentList(select);
         injectControl.injectComponent(fluentList, container, searchContext);
         if (postFilterSelector.isEmpty()) {
             return fluentList;
@@ -136,7 +138,7 @@ public class Search implements SearchControl<FluentWebElement> {
     public FluentList<FluentWebElement> find(By locator, SearchFilter... filters) {
         List<WebElement> select = selectList(locator);
 
-        FluentList fluentList = instantiator.asFluentList(select);
+        FluentList<FluentWebElement> fluentList = instantiator.asFluentList(select);
         if (filters.length == 0) {
             return fluentList;
         }
@@ -170,42 +172,7 @@ public class Search implements SearchControl<FluentWebElement> {
     }
 
     @Override
-    public FluentList<FluentWebElement> $(String selector, SearchFilter... filters) {
-        return find(selector, filters);
-    }
-
-    @Override
-    public FluentWebElement el(String selector, SearchFilter... filters) {
-        return find(selector, filters).first();
-    }
-
-    @Override
-    public FluentList<FluentWebElement> $(SearchFilter... filters) {
-        return find(filters);
-    }
-
-    @Override
-    public FluentWebElement el(SearchFilter... filters) {
-        return find(filters).first();
-    }
-
-    @Override
-    public FluentList<FluentWebElement> $(By locator, SearchFilter... filters) {
-        return find(locator, filters);
-    }
-
-    @Override
-    public FluentWebElement el(By locator, SearchFilter... filters) {
-        return find(locator, filters).first();
-    }
-
-    @Override
     public FluentWebElement el(WebElement rawElement) {
-        return find(Arrays.asList(rawElement)).first();
-    }
-
-    @Override
-    public FluentList<FluentWebElement> $(List<WebElement> rawElements) {
-        return find(rawElements);
+        return find(singletonList(rawElement)).first();
     }
 }

@@ -8,12 +8,12 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.interactions.Coordinates;
 import org.openqa.selenium.interactions.HasInputDevices;
 import org.openqa.selenium.interactions.Keyboard;
 import org.openqa.selenium.interactions.Mouse;
-import org.openqa.selenium.interactions.internal.Coordinates;
 
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -90,6 +90,13 @@ public class MouseActionsTest {
     public void testBasic() {
         MouseActions actions = new MouseActions(driver);
         Assertions.assertThat(actions.basic()).isSameAs(mouse);
+    }
+
+    @Test
+    public void moveByOffset() {
+        MouseActions actions = new MouseActions(driver);
+        actions.moveByOffset(1, 1);
+        verify(mouse).mouseMove(null, 1, 1);
     }
 
     private abstract static class InputDevicesDriver implements WebDriver, HasInputDevices { // NOPMD AbstractNaming

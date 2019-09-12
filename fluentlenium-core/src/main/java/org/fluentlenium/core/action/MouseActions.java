@@ -1,6 +1,7 @@
 package org.fluentlenium.core.action;
 
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.interactions.Coordinates;
 import org.openqa.selenium.interactions.HasInputDevices;
 import org.openqa.selenium.interactions.Mouse;
 
@@ -32,7 +33,24 @@ public class MouseActions {
      * Basic mouse operations
      *
      * @return low level interface to control the mouse
+     * @deprecated Use the following mapping for updating your code:
+     * <p>
+     * {@link Mouse#click(Coordinates)} to {@link MouseElementActions#click()}
+     * <p>
+     * {@link Mouse#doubleClick(Coordinates)} to {@link MouseElementActions#doubleClick()}
+     * <p>
+     * {@link Mouse#mouseDown(Coordinates)} to {@link MouseElementActions#moveToElement()}
+     * then {@link MouseElementActions#clickAndHold()}
+     * <p>
+     * {@link Mouse#mouseUp(Coordinates)} to {@link MouseElementActions#release()}
+     * <p>
+     * {@link Mouse#mouseMove(Coordinates)} to {@link MouseElementActions#moveToElement()}
+     * <p>
+     * {@link Mouse#mouseMove(Coordinates, long, long)} to {@link MouseElementActions#moveToElement(int, int)}
+     * <p>
+     * {@link Mouse#contextClick(Coordinates)} to {@link MouseElementActions#contextClick()}
      */
+    @Deprecated
     public Mouse basic() {
         return ((HasInputDevices) driver).getMouse();
     }
@@ -90,4 +108,19 @@ public class MouseActions {
         actions().contextClick().perform();
         return this;
     }
+
+    /**
+     * Moves the mouse from its current position (or 0,0) by the given offset. If the coordinates
+     * provided are outside the viewport (the mouse will end up outside the browser window) then
+     * the viewport is scrolled to match.
+     * @param xOffset horizontal offset. A negative value means moving the mouse left.
+     * @param yOffset vertical offset. A negative value means moving the mouse up.
+     * @return this object reference to chain calls
+     * @see org.openqa.selenium.interactions.Actions#moveByOffset(int, int)
+     */
+    public MouseActions moveByOffset(int xOffset, int yOffset) {
+        actions().moveByOffset(xOffset, yOffset).perform();
+        return this;
+    }
+
 }

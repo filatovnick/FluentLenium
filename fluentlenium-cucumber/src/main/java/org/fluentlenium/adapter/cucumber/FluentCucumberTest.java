@@ -1,7 +1,12 @@
 package org.fluentlenium.adapter.cucumber;
 
 import cucumber.api.Scenario;
+import org.fluentlenium.utils.SeleniumVersionChecker;
+import org.fluentlenium.adapter.FluentControlContainer;
 import org.fluentlenium.adapter.FluentTestRunnerAdapter;
+import org.fluentlenium.adapter.SharedMutator;
+
+import static org.fluentlenium.adapter.cucumber.FluentTestContainer.FLUENT_TEST;
 
 /**
  * Cucumber FluentLenium Test Runner Adapter.
@@ -9,36 +14,85 @@ import org.fluentlenium.adapter.FluentTestRunnerAdapter;
  * Extends this class to provide FluentLenium support to your Cucumber Test class.
  */
 public class FluentCucumberTest extends FluentTestRunnerAdapter {
+
     /**
-     * Creates a new FluentLenium cucumber test.
+     * Initializes context for {@link FluentCucumberTest} and store it in container at
+     * {@link FluentTestContainer} to share state across Cucumber steps.
      */
     public FluentCucumberTest() {
-        super(new FluentCucumberSharedMutator());
+        this(FLUENT_TEST.getControlContainer(), FLUENT_TEST.getSharedMutator());
+
+        FLUENT_TEST.instantiatePages(this);
     }
 
-    // It's not allowed by Cucumber JVM to add @Before in the base class.
+    /**
+     * Constructor used within module. Creates a new FluentLenium cucumber test and points within
+     * {@link FluentTestContainer}.
+     *
+     * @param container     driver container
+     * @param clazz         class from which FluentConfiguration annotation will be loaded
+     * @param sharedMutator shared mutator
+     */
+    protected FluentCucumberTest(FluentControlContainer container, Class clazz, SharedMutator sharedMutator) {
+        super(container, clazz, sharedMutator);
+    }
 
     /**
-     * Initialize a Cucumber scenario inside the adapter.
+     * Constructor used within module. Creates a new FluentLenium cucumber test and points within
+     * {@link FluentTestContainer}.
      *
-     * @param scenario Cucumber scenario to initialize
+     * @param container     driver container
+     * @param sharedMutator shared mutator
      */
+    protected FluentCucumberTest(FluentControlContainer container, SharedMutator sharedMutator) {
+        super(container, sharedMutator);
+    }
+
+    /**
+     * Initialization of FluentCucumberTestAdapter
+     *
+     * @param scenario Cucumber scenario
+     * @deprecated when migrating to new Cucumber package structure, use {@link #before(io.cucumber.core.api.Scenario)}
+     */
+    @Deprecated
     public void before(Scenario scenario) {
-        starting(scenario.getId());
+        SeleniumVersionChecker.checkSeleniumVersion();
+        starting(scenario.getName());
     }
 
-    // It's not allowed by Cucumber JVM to add @After in the base class.
+    /**
+     * Initialization of FluentCucumberTestAdapter
+     *
+     * @param scenario Cucumber scenario
+     */
+    public void before(io.cucumber.core.api.Scenario scenario) {
+        SeleniumVersionChecker.checkSeleniumVersion();
+        starting(scenario.getName());
+    }
 
     /**
-     * Release a Cucumber scenario from the adapter.
+     * Stopping of FluentCucumberTest adapter
      *
-     * @param scenario Cucumber scenario to release
+     * @param scenario Cucumber scenario
+     * @deprecated when migrating to new Cucumber package structure, use {@link #after(io.cucumber.core.api.Scenario)}
      */
+    @Deprecated
     public void after(Scenario scenario) {
         if (scenario.isFailed()) {
-            failed(scenario.getId());
+            failed(scenario.getName());
         }
+        finished(scenario.getName());
+    }
 
-        finished(scenario.getId());
+    /**
+     * Stopping of FluentCucumberTest adapter
+     *
+     * @param scenario Cucumber scenario
+     */
+    public void after(io.cucumber.core.api.Scenario scenario) {
+        if (scenario.isFailed()) {
+            failed(scenario.getName());
+        }
+        finished(scenario.getName());
     }
 }

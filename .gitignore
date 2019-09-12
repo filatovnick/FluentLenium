@@ -188,7 +188,14 @@ interpolated-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 build.log
+.flattened-pom.xml
 
 *.exec
 
 /myTestScreenshot.png
+
+settings.xml
+
+Gemfile.lock
+
+examples/spring/gridurl.txt

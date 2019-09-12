@@ -1,8 +1,9 @@
 package org.fluentlenium.core.wait;
 
-import java.util.function.Supplier;
-
+import java.time.Duration;
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * Configuration API of fluent wait object.
@@ -22,10 +23,20 @@ public interface FluentWaitConfiguration<T> {
      * Configure timeout for this wait object.
      *
      * @param duration duration
+     * @return {@code this} object to chain method calls
+     */
+    T atMost(Duration duration);
+
+    /**
+     * Configure timeout for this wait object.
+     *
+     * @param duration duration
      * @param unit     time unit
      * @return {@code this} object to chain method calls
      */
-    T atMost(long duration, TimeUnit unit);
+    default T atMost(long duration, TimeUnit unit) {
+        return atMost(Duration.of(duration, TimeToChronoUnitConverter.of(unit)));
+    }
 
     /**
      * Configure wait timeout for this wait object.
@@ -33,7 +44,17 @@ public interface FluentWaitConfiguration<T> {
      * @param duration duration in millisecond
      * @return {@code this} object to chain method calls
      */
-    T atMost(long duration);
+    default T atMost(long duration) {
+        return atMost(Duration.ofMillis(duration));
+    }
+
+    /**
+     * Configure polling time for this wait object.
+     *
+     * @param duration duration between each condition invocation
+     * @return {@code this} object to chain method calls
+     */
+    T pollingEvery(Duration duration);
 
     /**
      * Configure polling time for this wait object.
@@ -42,7 +63,9 @@ public interface FluentWaitConfiguration<T> {
      * @param unit     time unit
      * @return {@code this} object to chain method calls
      */
-    T pollingEvery(long duration, TimeUnit unit);
+    default T pollingEvery(long duration, TimeUnit unit) {
+        return pollingEvery(Duration.of(duration, TimeToChronoUnitConverter.of(unit)));
+    }
 
     /**
      * Configure polling time for this wait object.
@@ -50,7 +73,9 @@ public interface FluentWaitConfiguration<T> {
      * @param duration duration in millisecond between each condition invocation
      * @return {@code this} object to chain method calls
      */
-    T pollingEvery(long duration);
+    default T pollingEvery(long duration) {
+        return pollingEvery(Duration.ofMillis(duration));
+    }
 
     /**
      * Add given exceptions to ignore list to avoid breaking the wait when they occurs in the underlying condition evaluation.
@@ -58,7 +83,7 @@ public interface FluentWaitConfiguration<T> {
      * @param types collection of exception type to ignore
      * @return {@code this} object to chain method calls
      */
-    T ignoreAll(java.util.Collection<java.lang.Class<? extends Throwable>> types);
+    T ignoreAll(Collection<Class<? extends Throwable>> types);
 
     /**
      * Add given exception to ignore list to avoid breaking the wait when they occurs in the underlying condition evaluation.
@@ -66,7 +91,7 @@ public interface FluentWaitConfiguration<T> {
      * @param exceptionType exception type to ignore
      * @return {@code this} object to chain method calls
      */
-    T ignoring(java.lang.Class<? extends java.lang.RuntimeException> exceptionType);
+    T ignoring(Class<? extends RuntimeException> exceptionType);
 
     /**
      * Add given exceptions to ignore list to avoid breaking the wait when they occurs in the underlying condition evaluation.
@@ -75,8 +100,7 @@ public interface FluentWaitConfiguration<T> {
      * @param secondType exception type to ignore
      * @return {@code this} object to chain method calls
      */
-    T ignoring(java.lang.Class<? extends java.lang.RuntimeException> firstType,
-            java.lang.Class<? extends java.lang.RuntimeException> secondType);
+    T ignoring(Class<? extends RuntimeException> firstType, Class<? extends RuntimeException> secondType);
 
     /**
      * Configures a custom message to be used if the condition fails during the timeout duration.
@@ -84,7 +108,9 @@ public interface FluentWaitConfiguration<T> {
      * @param message failing message
      * @return {@code this} object to chain method calls
      */
-    T withMessage(String message);
+    default T withMessage(String message) {
+        return withMessage(() -> message);
+    }
 
     /**
      * Configures a custom message supplier to be used if the condition fails during the timeout duration.

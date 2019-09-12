@@ -1,9 +1,10 @@
 package org.fluentlenium.core.conditions;
 
+import org.fluentlenium.core.domain.FluentList;
+import org.fluentlenium.core.domain.FluentWebElement;
+
 import java.util.List;
 import java.util.function.Predicate;
-
-import org.fluentlenium.core.domain.FluentWebElement;
 
 /**
  * Abstract class conditions on list of elements.
@@ -24,10 +25,17 @@ public abstract class AbstractFluentListConditions implements FluentListConditio
 
     @Override
     public boolean size(int size) {
+        int elementsSize = getElementsSize();
         if (negation) {
-            return elements.size() != size;
+            return elementsSize != size;
         }
-        return elements.size() == size;
+        return elementsSize == size;
+    }
+
+    private int getElementsSize() {
+        return elements instanceof FluentList
+                ? ((FluentList) elements).count()
+                : elements.size();
     }
 
     /**
@@ -74,47 +82,37 @@ public abstract class AbstractFluentListConditions implements FluentListConditio
 
     @Override
     public boolean present() {
-        return verify(input -> input.conditions().present(), false);
+        return verify(input -> input.conditions().present());
     }
 
     @Override
     public boolean clickable() {
-        return verify(input -> input.conditions().clickable(), false);
+        return verify(input -> input.conditions().clickable());
     }
 
     @Override
     public boolean stale() {
-        return verify(input -> input.conditions().stale(), false);
+        return verify(input -> input.conditions().stale());
     }
 
     @Override
     public boolean displayed() {
-        return verify(input -> input.conditions().displayed(), false);
+        return verify(input -> input.conditions().displayed());
     }
 
     @Override
     public boolean enabled() {
-        return verify(input -> input.conditions().enabled(), false);
+        return verify(input -> input.conditions().enabled());
     }
 
     @Override
     public boolean selected() {
-        return verify(input -> input.conditions().selected(), false);
-    }
-
-    @Override
-    public boolean attribute(String name, String value) {
-        return attribute(name).equalTo(value);
+        return verify(input -> input.conditions().selected());
     }
 
     @Override
     public StringConditions attribute(String name) {
         return new StringListConditionsImpl(this, input -> input.attribute(name), input -> input.conditions().attribute(name));
-    }
-
-    @Override
-    public boolean id(String id) {
-        return id().equalTo(id);
     }
 
     @Override
@@ -128,18 +126,8 @@ public abstract class AbstractFluentListConditions implements FluentListConditio
     }
 
     @Override
-    public boolean name(String name) {
-        return name().equalTo(name);
-    }
-
-    @Override
     public StringConditions tagName() {
         return new StringListConditionsImpl(this, FluentWebElement::tagName, input -> input.conditions().tagName());
-    }
-
-    @Override
-    public boolean tagName(String tagName) {
-        return tagName().equalTo(tagName);
     }
 
     @Override
@@ -148,28 +136,13 @@ public abstract class AbstractFluentListConditions implements FluentListConditio
     }
 
     @Override
-    public boolean value(String value) {
-        return value().equalTo(value);
-    }
-
-    @Override
     public StringConditions text() {
         return new StringListConditionsImpl(this, FluentWebElement::text, input -> input.conditions().text());
     }
 
     @Override
-    public boolean text(String text) {
-        return text().equalTo(text);
-    }
-
-    @Override
     public StringConditions textContent() {
         return new StringListConditionsImpl(this, FluentWebElement::textContent, input -> input.conditions().textContent());
-    }
-
-    @Override
-    public boolean textContent(String anotherString) {
-        return textContent().equalTo(anotherString);
     }
 
     @Override
@@ -179,6 +152,6 @@ public abstract class AbstractFluentListConditions implements FluentListConditio
 
     @Override
     public boolean className(String className) {
-        return verify(input -> input.conditions().className(className), false);
+        return verify(input -> input.conditions().className(className));
     }
 }

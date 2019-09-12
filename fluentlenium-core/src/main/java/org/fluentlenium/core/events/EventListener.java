@@ -5,6 +5,7 @@ import org.openqa.selenium.Alert;
 import org.openqa.selenium.By;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 
 /**
  * Listener interface for events.
@@ -198,7 +199,7 @@ public interface EventListener {
     /**
      * Called  before {@link WebDriver.Window#switchTo()} ()}
      *
-     * @param s String
+     * @param s      String
      * @param driver WebDriver
      */
     void beforeSwitchToWindow(String s, WebDriver driver);
@@ -206,7 +207,7 @@ public interface EventListener {
     /**
      * Called  after {@link WebDriver.Window#switchTo()} ()}
      *
-     * @param s String
+     * @param s      String
      * @param driver WebDriver
      */
     void afterSwitchToWindow(String s, WebDriver driver);
@@ -214,6 +215,7 @@ public interface EventListener {
     /**
      * Called  before {@link org.openqa.selenium.TakesScreenshot#getScreenshotAs(OutputType)} ()}
      *
+     * @param <X>        object
      * @param outputType OutputType
      */
     <X> void beforeGetScreenshotAs(OutputType<X> outputType);
@@ -221,8 +223,26 @@ public interface EventListener {
     /**
      * Called  after {@link org.openqa.selenium.TakesScreenshot#getScreenshotAs(OutputType)} ()}
      *
+     * @param <X>        object
      * @param outputType OutputType
-     * @param x X
+     * @param x          object
      */
     <X> void afterGetScreenshotAs(OutputType<X> outputType, X x);
+
+    /**
+     * Called  before {@link WebElement#getText()} ()}
+     *
+     * @param webElement WebElement
+     * @param webDriver  WebDriver
+     */
+    void beforeGetText(FluentWebElement webElement, WebDriver webDriver);
+
+    /**
+     * Called  after {@link WebElement#getText()} ()}
+     *
+     * @param webElement WebElement
+     * @param webDriver  WebDriver
+     * @param s          String
+     */
+    void afterGetText(FluentWebElement webElement, WebDriver webDriver, String s);
 }

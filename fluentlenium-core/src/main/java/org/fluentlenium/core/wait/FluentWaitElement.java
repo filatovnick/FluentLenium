@@ -1,12 +1,12 @@
 package org.fluentlenium.core.wait;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-
 import org.fluentlenium.core.FluentControl;
 import org.fluentlenium.core.FluentPage;
 import org.fluentlenium.core.conditions.FluentConditions;
@@ -49,25 +49,13 @@ public class FluentWaitElement implements FluentWaitFunctional<FluentControl>, F
     }
 
     @Override
-    public FluentWaitElement atMost(long duration, TimeUnit unit) {
-        controlWait.atMost(duration, unit);
+    public FluentWaitElement atMost(Duration duration) {
+        controlWait.atMost(duration);
         return this;
     }
 
     @Override
-    public FluentWaitElement atMost(long timeInMillis) {
-        controlWait.atMost(timeInMillis);
-        return this;
-    }
-
-    @Override
-    public FluentWaitElement pollingEvery(long duration, TimeUnit unit) {
-        controlWait.pollingEvery(duration, unit);
-        return this;
-    }
-
-    @Override
-    public FluentWaitElement pollingEvery(long duration) {
+    public FluentWaitElement pollingEvery(Duration duration) {
         controlWait.pollingEvery(duration);
         return this;
     }
@@ -87,12 +75,6 @@ public class FluentWaitElement implements FluentWaitFunctional<FluentControl>, F
     @Override
     public FluentWaitElement ignoring(Class<? extends RuntimeException> firstType, Class<? extends RuntimeException> secondType) {
         controlWait.ignoring(firstType, secondType);
-        return this;
-    }
-
-    @Override
-    public FluentWaitElement withMessage(String message) {
-        controlWait.withMessage(message);
         return this;
     }
 
@@ -121,11 +103,6 @@ public class FluentWaitElement implements FluentWaitFunctional<FluentControl>, F
     @Override
     public void until(Supplier<Boolean> isTrue) {
         controlWait.until(isTrue);
-    }
-
-    @Override
-    public <T> T until(Function<? super FluentControl, T> isTrue) {
-        return controlWait.until(isTrue);
     }
 
     @Override
@@ -174,12 +151,6 @@ public class FluentWaitElement implements FluentWaitFunctional<FluentControl>, F
     }
 
     @Override
-    public FluentWaitElement explicitlyFor(long amount) {
-        controlWait.explicitlyFor(amount);
-        return this;
-    }
-
-    @Override
     public FluentWaitElement explicitlyFor(long amount, TimeUnit timeUnit) {
         controlWait.explicitlyFor(amount, timeUnit);
         return this;
@@ -189,11 +160,11 @@ public class FluentWaitElement implements FluentWaitFunctional<FluentControl>, F
      * Wait until function returns true
      *
      * @param function function to be performed
-     * @param <T> FluentWaitElement
+     * @param <T>      FluentWaitElement
      * @return FluentWaitElement
      */
     @Deprecated
-    public <T> T until(com.google.common.base.Function<? super FluentControl, T> function) {
+    public <T> T until(Function<? super FluentControl, T> function) {
         return controlWait.until(function);
     }
 }

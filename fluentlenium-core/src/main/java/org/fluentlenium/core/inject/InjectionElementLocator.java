@@ -1,6 +1,5 @@
 package org.fluentlenium.core.inject;
 
-import lombok.experimental.Delegate;
 import org.fluentlenium.core.label.FluentLabelImpl;
 import org.fluentlenium.core.label.FluentLabelProvider;
 import org.openqa.selenium.By;
@@ -9,7 +8,6 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.pagefactory.ElementLocator;
 
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * The injection element locator, which will lazily locate an element or an element list on a page. This class is
@@ -20,7 +18,6 @@ public class InjectionElementLocator implements ElementLocator, FluentLabelProvi
     private final SearchContext searchContext;
     private final boolean shouldCache;
     private final By by;
-    private final boolean isFirst;
     private WebElement cachedElement;
     private List<WebElement> cachedElementList;
     private final FluentLabelImpl<InjectionElementLocator> label;
@@ -36,18 +33,11 @@ public class InjectionElementLocator implements ElementLocator, FluentLabelProvi
         this.searchContext = searchContext;
         shouldCache = annotations.isLookupCached();
         by = annotations.buildBy();
-        this.isFirst = isFirst;
-        label = new FluentLabelImpl<>(this, new Supplier<String>() {
-            @Override
-            public String get() {
-                return by.toString() + (InjectionElementLocator.this.isFirst ? " (first)" : "");
-            }
-        });
+        label = new FluentLabelImpl<>(this, () -> by.toString() + (isFirst ? " (first)" : ""));
         label.withLabel(annotations.getLabel());
         label.withLabelHint(annotations.getLabelHints());
     }
 
-    @Delegate
     private FluentLabelProvider getLabelProvider() { // NOPMD UnusedPrivateMethod
         return label;
     }
@@ -91,6 +81,14 @@ public class InjectionElementLocator implements ElementLocator, FluentLabelProvi
     @Override
     public String toString() {
         return label.toString();
+    }
+
+    public String getLabel() {
+        return getLabelProvider().getLabel();
+    }
+
+    public String[] getLabelHints() {
+        return getLabelProvider().getLabelHints();
     }
 }
 
